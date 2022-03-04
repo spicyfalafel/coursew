@@ -1,7 +1,7 @@
 
 (ns courseui.requests
   (:require [reagent.core :as r])
-  (:require [samurai-ui.json-util :as my-json])
+  (:require [courseui.json-util :as my-json])
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cljs.core.async :refer [<!]] [cljs-http.client :as http]))
 

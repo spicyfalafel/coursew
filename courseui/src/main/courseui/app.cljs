@@ -1,8 +1,8 @@
 
-(ns samurai-ui.app
+(ns courseui.app
   (:require [reagent.core :as r]
             [reagent.dom :as dom]
-            [samurai-ui.requests :as myreq]
+            [courseui.requests :as myreq]
             ["@material-ui/core/Button" :default Button]
             ["@material-ui/core/TextField" :default TextField]
             ["@material-ui/core/Container" :default Container]
