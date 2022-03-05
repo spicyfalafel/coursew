@@ -20,7 +20,6 @@
   (to-json [dt gen]
     (cheshire.generate/write-string gen (str dt))))
 
-(+ 1 2)
 
 (defn get-patients []
               (generate-string (db/get-patients) {:pretty true}))
@@ -56,11 +55,14 @@
      :status 404
      :body "not found"}))
 
+(defn login [request]
+  {:status 200
+   :body (:params request)})
+
 (compojure/defroutes routes
-  (compojure/GET "/patient" [] {:body (get-patients)})
-  (compojure/POST "/patient" request (add-patient request))
-  (compojure/PUT "/patient/:id" [id :as request] (update-patient request))
-  (compojure/DELETE "/patient/:id" [id :as request] (delete-patient request)),
+  (compojure/POST "/api/users/login" request (login request))
+  ; (compojure/PUT "/patient/:id" [id :as request] (update-patient request))
+  ; (compojure/DELETE "/patient/:id" [id :as request] (delete-patient request)),
   (cjr/not-found "<h1>Page not found!!!</h1>"))
 
 (def app (-> routes
@@ -68,7 +70,7 @@
              (wrap-json-body {:keywords? true :bigdecimals? true})
              wrap-params
              wrap-keyword-params
-             (wrap-cors :access-control-allow-origin [#"http://localhost:8000"] ;; CORS
+             (wrap-cors :access-control-allow-origin [#"http://localhost:8280"] ;; CORS
                         :access-control-allow-methods [:get :post]
                         :access-control-allow-headers ["Origin" "X-Requested-With" "Content-Type" "Accept"])))
 

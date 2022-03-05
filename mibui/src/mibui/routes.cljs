@@ -12,13 +12,13 @@
   (atom
     ["/" {""      :home
           "login" :login
+          "register" :register
           "my-aliens" :my-aliens}]))
 
 (defn parse
   [url]
   (bidi/match-route @routes url))
 
-(parse "/login")
 
 (defn url-for
   [& args]
@@ -44,3 +44,10 @@
   :navigate
   (fn [handler]
     (navigate! handler)))
+
+
+;; -- url-for -----------------------------------------------------------------
+;; To dispatch routes in our UI (view) we will use url-for and then pass a
+;; keyword to which route we want to direct the user.
+;; usage: (url-for :home)
+(def get-url-for (partial bidi/path-for routes))
