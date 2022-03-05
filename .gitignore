@@ -1,4 +1,6 @@
 /target
+*.clj-kondo
+
 /classes
 /checkouts
 profiles.clj
