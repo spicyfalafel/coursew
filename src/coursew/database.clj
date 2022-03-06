@@ -64,34 +64,42 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defn get-patients []
-  (jdbc/query pg-db (sql/format {:select [:patient.firstname
-                                          :patient.lastname
-                                          [:gender.name "gender"]
-                                          :patient.birthdate
-                                          :patient.address
-                                          :patient.polys_id]
-                                 :from [:patient]
-                                 :join [:gender [:= :gender.id :patient.gender_id]]})))
+; (defn get-patients []
+;   (jdbc/query pg-db (sql/format {:select [:patient.firstname
+;                                           :patient.lastname
+;                                           [:gender.name "gender"]
+;                                           :patient.birthdate
+;                                           :patient.address
+;                                           :patient.polys_id]
+;                                  :from [:patient]
+;                                  :join [:gender [:= :gender.id :patient.gender_id]]})))
+;
+; (defn del-patient! [id]
+;   (jdbc/delete! pg-db :patient ["id = ?" id]))
+;
 
-(defn del-patient! [id]
-  (jdbc/delete! pg-db :patient ["id = ?" id]))
+; (defn replace-birthdate-str [patient]
+;   (if-let [birthdate-str (:birthdate patient)]
+;     (assoc patient :birthdate (parse-date birthdate-str))
+;     patient))
+;
+; (defn upd-patient! [patient]
+;   ;; если в параметре есть birthdate, значит надо его поменять на объект даты
+;   ;; если нет, значит менять не надо
+;   (jdbc/update! pg-db :patient (replace-birthdate-str patient)
+;                 ["id = ?" (:id patient)]))
+;
+; (defn ins-patient! [patient]
+;   (let [pat (assoc patient :birthdate  (parse-date (:birthdate patient)))]
+;    (jdbc/insert! pg-db :patient pat)))
+;
 
+(defn alien-info []
+  (jdbc/query pg-db (sql/format {:select [:*]
+                                 :from [:alien_info]})))
 
-(defn replace-birthdate-str [patient]
-  (if-let [birthdate-str (:birthdate patient)]
-    (assoc patient :birthdate (parse-date birthdate-str))
-    patient))
-
-(defn upd-patient! [patient]
-  ;; если в параметре есть birthdate, значит надо его поменять на объект даты
-  ;; если нет, значит менять не надо
-  (jdbc/update! pg-db :patient (replace-birthdate-str patient)
-                ["id = ?" (:id patient)]))
-
-(defn ins-patient! [patient]
-  (let [pat (assoc patient :birthdate  (parse-date (:birthdate patient)))]
-   (jdbc/insert! pg-db :patient pat)))
+(defn user-by-cred [username passw]
+  (jdbc/query pg-db ["select * from \"user\" where username=? and passw_hash=?" username passw]))
 
 (comment
   (def pat {:firstname "a"
@@ -101,7 +109,11 @@
             :address "ffsfff"
             :polys_id 4444414444444444})
 
+  (user-by-cred "123" "123")
+  (user-by-cred "1" "1")
 
-  (ins-patient! pat)
-  (upd-patient! (assoc pat :id 13)) ;; ok
-  (get-patients))
+  (def username "1")
+  (def passw "1")  (count (alien-info)))
+  ; (ins-patient! pat)
+  ; (upd-patient! (assoc pat :id 13)) ;; ok
+  ; (get-patients))

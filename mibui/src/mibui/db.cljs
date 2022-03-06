@@ -2,15 +2,21 @@
   (:require [cljs.reader]
             [re-frame.core :refer [reg-cofx]]))
 
-(def default-db
-  {:active-page :home})
+;; -- Default app-db Value  ---------------------------------------------------
+;;
+;; When the application first starts, this will be the value put in app-db
+;; Look in:
+;;   1. `core.cljs` for  "(dispatch-sync [:initialise-db])"
+;;   2. `events.cljs` for the registration of :initialise-db handler
+;;
+(def default-db {:active-page :home})  ;; what gets put into app-db by default.
 
 ;; -- Local Storage  ----------------------------------------------------------
 ;;
 ;; Part of the conduit challenge is to store a user in localStorage, and
 ;; on app startup, reload the user from when the program was last run.
 ;;
-(def conduit-user-key "conduit-user")  ;; localstore key
+(def conduit-user-key "my-user")  ;; localstore key
 
 (defn set-user-ls
   [user]

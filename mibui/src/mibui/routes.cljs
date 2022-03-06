@@ -2,52 +2,55 @@
   (:require
    [bidi.bidi :as bidi]
    [pushy.core :as pushy]
-   [re-frame.core :as re-frame]
-   [mibui.events :as events]))
+   [re-frame.core :as re-frame :refer [dispatch]]))
 
-(defmulti panels identity)
-(defmethod panels :default [] [:div "No such page"])
+;; The routes setup is inspired by J. Pablo Fernández
+;; source: https://pupeno.com/2015/08/26/no-hashes-bidirectional-routing-in-re-frame-with-bidi-and-pushy/
 
+;; -- Routes ------------------------------------------------------------------
+;; Define routes so that when we enter specific path the router knows what to
+;; show us. A route is simply a data structure--a vector--with a pattern and
+;; a result.
 (def routes
-  (atom
-    ["/" {""      :home
-          "login" :login
-          "register" :register
-          "my-aliens" :my-aliens}]))
+  ["/" {""         :home
+        "login"    :login
+        "register" :register
+        "aliens"   :aliens
+        "another"  :another}])
 
-(defn parse
-  [url]
-  (bidi/match-route @routes url))
+;; -- History -----------------------------------------------------------------
+;; we need to know the history of our routes so that we can navigate back and
+;; forward. For that we'll use `pushy/pushy`, to which we need to provide a dispatch
+;; function (what happens on dispatch) and match (what routes should we match).
+(def history
+  (let [dispatch #(dispatch [:set-active-page {:page (:handler %)}])
+        match #(bidi/match-route routes %)]
+    (println "history")
+    (pushy/pushy dispatch match)))
 
-
-(defn url-for
-  [& args]
-  (apply bidi/path-for (into [@routes] args)))
-
-(defn dispatch
-  [route]
-  (let [panel (keyword (str (name (:handler route)) "-panel"))]
-    (re-frame/dispatch [::events/set-active-panel panel])))
-
-(defonce history
-  (pushy/pushy dispatch parse))
-
-(defn navigate!
-  [handler]
-  (pushy/set-token! history (url-for handler)))
-
+;; -- Router Start ------------------------------------------------------------
+;;
 (defn start!
   []
+  ;; pushy is here to take care of nice looking urls. Normally we would have to
+  ;; deal with #. By using pushy we can have '/about' instead of '/#/about'.
+  ;; pushy takes three arguments:
+  ;; dispatch-fn - which dispatches when a match is found
+  ;; match-fn - which checks if a route exist
+  ;; identity-fn (optional) - extract the route from value returned by match-fn
   (pushy/start! history))
-
-(re-frame/reg-fx
-  :navigate
-  (fn [handler]
-    (navigate! handler)))
-
 
 ;; -- url-for -----------------------------------------------------------------
 ;; To dispatch routes in our UI (view) we will use url-for and then pass a
 ;; keyword to which route we want to direct the user.
 ;; usage: (url-for :home)
-(def get-url-for (partial bidi/path-for routes))
+(def url-for (partial bidi/path-for routes))
+
+
+;; -- set-token! --------------------------------------------------------------
+;; To change route after some actions we will need to set url and for that we
+;; will use set-token!, taking the history and a token.
+(defn set-token!
+  [token]
+  (println "set token")
+  (pushy/set-token! history token))

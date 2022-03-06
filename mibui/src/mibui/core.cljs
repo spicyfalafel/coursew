@@ -9,9 +9,7 @@
 
 
 
-(defn dev-setup []
-  (when config/debug?
-    (println "dev mode")))
+(defn dev-setup [])
 
 (defn ^:dev/after-load mount-root []
   (re-frame/clear-subscription-cache!)
@@ -21,6 +19,7 @@
 
 (defn init []
   (routes/start!)
-  (re-frame/dispatch-sync [::events/initialize-db])
+  (println "initialize-db")
+  (re-frame/dispatch-sync [:initialize-db])
   (dev-setup)
   (mount-root))

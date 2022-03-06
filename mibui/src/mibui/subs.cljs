@@ -1,13 +1,15 @@
 (ns mibui.subs
   (:require
-   [re-frame.core :as re-frame]))
+   [re-frame.core :as re-frame :refer [reg-sub]]))
 
-(re-frame/reg-sub
- ::name
- (fn [db]
-   (:name db)))
 
-(re-frame/reg-sub
- ::active-panel
+(reg-sub
+ :active-page
  (fn [db _]
-   (:active-panel db)))
+   (:active-page db)))
+
+
+(reg-sub
+ :user ;; usage: (subscribe [:user])
+ (fn [db _]
+   (:user db)))

@@ -24,40 +24,46 @@
 (defn get-patients []
               (generate-string (db/get-patients) {:pretty true}))
 
-(defn add-patient [request]
-  (let [patient (:body request)]
-    (if-let [ans-map (db/ins-patient! patient)]
-      {
-       :status 201
-       :body ans-map}
-      {:status 400
-       :body "something went wrong"})))
+; (defn add-patient [request]
+;   (let [patient (:body request)]
+;     (if-let [ans-map (db/ins-patient! patient)]
+;       {
+;        :status 201
+;        :body ans-map}
+;       {:status 400
+;        :body "something went wrong"})))
+;
+;
+;
+; (defn update-patient [request]
+;   (let [patient (:body request)
+;         id (:id :params request)] ;; todo use /patient/:id
+;     (if-let [ans-map (db/upd-patient! patient)]
+;       {
+;        :status 200
+;        :body ans-map}
+;       {:status 204
+;        :body "not found"})))
+;
 
-
-
-(defn update-patient [request]
-  (let [patient (:body request)
-        id (:id :params request)] ;; todo use /patient/:id
-    (if-let [ans-map (db/upd-patient! patient)]
-      {
-       :status 200
-       :body ans-map}
-      {:status 204
-       :body "not found"})))
-
-
-(defn delete-patient [request]
-  (if-let [del-ans (db/del-patient! (Integer/parseInt (-> request :params :id)))]
-    {
-     :status 200
-     :body del-ans}
-    {
-     :status 404
-     :body "not found"}))
-
+; (defn delete-patient [request]
+;   (if-let [del-ans (db/del-patient! (Integer/parseInt (-> request :params :id)))]
+;     {
+;      :status 200
+;      :body del-ans}
+;     {
+;      :status 404
+;      :body "not found"}))
+;
 (defn login [request]
-  {:status 200
-   :body (:params request)})
+  (let [username (-> request :body :user :username)
+        password (-> request :body :user :password)
+        user (db/user-by-cred username password)]
+    (if (empty? user)
+        {:status 404
+         :body [(str "no such user " username " " password)]}
+        {:status 200
+             :body user})))
 
 (compojure/defroutes routes
   (compojure/POST "/api/users/login" request (login request))
