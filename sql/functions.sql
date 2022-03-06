@@ -1,9 +1,18 @@
 -- show all aliens requests with request_type VISIT
--- ???
+--
+-- show all available nicnnames
+create or replace function get_available_nickname()
+    returns varchar(64)
+as
+$$
+begin
+  select distinct nickname from agent_info where is_alive = true;
+end;
+$$ language plpgsql;
 
 
 -- функция для регистрации пользователя (с выбором роли)
-create or replace function register_user(username text, password text, alien bool default false)
+create or replace function register_user(uname text, password text, alien bool default false)
     returns int
 as
 $$
@@ -13,14 +22,26 @@ declare
 begin
     if alien then role_name := 'ALIEN';
     end if;
-    insert into "user" (username, passw_hash) values(username, password) returning id into ret_id;
+    insert into "user" (username, passw_hash) values (uname, password) returning id into ret_id;
 
-    insert into user_roles(user_id, role_id) values(ret_id, (select id from role where name = role_name));
+    insert into user_roles(user_id, role_id) values (ret_id, (select id from role where name = role_name));
     return ret_id;
 end;
 $$ language plpgsql;
 
+select * from register_user('username1', 'password1', false);
 
+select * from "user" where id = 1109;
+create or replace function f(int)
+returns int
+as
+    $$
+    begin
+        return $1;
+    end;
+    $$ language plpgsql;
+
+select f(1);
 -- функция возвращает всех пользователей с ролью role
 create or replace function get_user_by_role(role_name varchar(32))
     returns table

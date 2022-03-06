@@ -9,6 +9,9 @@
    [java-time :as time])
   (:import [java.sql Timestamp]
            [java.sql Date]
+           [java.sql Connection]
+           [java.sql PreparedStatement]
+           [java.sql ResultSet]
            [java.time.format DateTimeFormatter]
            [java.time LocalDate]
            [java.time Instant]
@@ -95,7 +98,11 @@
 ;
 
 (defn register-alien [username password]
-  (jdbc/db-do-commands pg-db ["select from register-user(?, ?)" username password]))
+  (jdbc/query pg-db ["select register_user(?, ?, true)" username password]))
+
+(defn register-agent [username password]
+  (jdbc/query pg-db ["select register_user(?, ?, false)" username password]))
+                                   ; username password]))
 
 (defn alien-info []
   (jdbc/query pg-db (sql/format {:select [:*]
@@ -115,8 +122,6 @@
   (user-by-cred "123" "123")
   (user-by-cred "1" "1")
 
-  (def username "1")
-  (def passw "1")  (count (alien-info)))
-  ; (ins-patient! pat)
-  ; (upd-patient! (assoc pat :id 13)) ;; ok
-  ; (get-patients))
+  (register-agent "1234" "1234")
+
+  (jdbc/query pg-db ["select * from register_user(?, ?)" "2" "2"]))

@@ -59,7 +59,7 @@ create trigger check_creator_executor_roles before insert or update on request
     for each row execute procedure check_creator_executor_roles();
 
 
--- Проверка, что USER_ID - пользователь с ролью “Агент”?
+-- Проверка для таблицы agent_info, что USER_ID - пользователь с ролью “Агент”
 create or replace function check_agent_role() returns trigger as $$
 declare
     agent_role_id integer := (select id from role where name = 'AGENT');
@@ -75,7 +75,7 @@ create trigger check_agent_role before insert or update on agent_info
     for each row execute procedure check_agent_role();
 
 
--- Проверка, что USER_ID - пользователь с ролью “Пришелец”?
+-- Проверка для таблицы alien_info, что USER_ID - пользователь с ролью “Пришелец”?
 create or replace function check_alien_role() returns trigger as $$
 declare
     alien_role_id integer := (select id from role where name = 'ALIEN');
@@ -158,7 +158,7 @@ create trigger check_pending_form_duplicates before insert on alien_form
     for each row execute procedure check_pending_form_duplicates();
 
 
--- Триггер для проверки дублирования имен живых агентов
+-- Триггер для проверки дублирования имен живых агентов при вставке/обновления агента
 create or replace function check_alive_nickname_duplicates() returns trigger as $$
 begin
     if exists(select 1 from agent_info where nickname = new.nickname and is_alive and new.is_alive) then

@@ -3,7 +3,6 @@
    [immutant.web :as web]
    [compojure.route :as cjr]
    [compojure.core :as compojure]
-   ;[clojure.data.json :as json]
    [cheshire.core :refer [generate-string]]
    [cheshire.generate :refer [JSONable]]
    [ring.middleware.cors :refer [wrap-cors]]
@@ -32,37 +31,6 @@
 (defn get-patients []
               (generate-string (db/get-patients) {:pretty true}))
 
-; (defn add-patient [request]
-;   (let [patient (:body request)]
-;     (if-let [ans-map (db/ins-patient! patient)]
-;       {
-;        :status 201
-;        :body ans-map}
-;       {:status 400
-;        :body "something went wrong"})))
-;
-;
-;
-; (defn update-patient [request]
-;   (let [patient (:body request)
-;         id (:id :params request)] ;; todo use /patient/:id
-;     (if-let [ans-map (db/upd-patient! patient)]
-;       {
-;        :status 200
-;        :body ans-map}
-;       {:status 204
-;        :body "not found"})))
-;
-
-; (defn delete-patient [request]
-;   (if-let [del-ans (db/del-patient! (Integer/parseInt (-> request :params :id)))]
-;     {
-;      :status 200
-;      :body del-ans}
-;     {
-;      :status 404
-;      :body "not found"}))
-;
 (defn login [request]
   (let [username (-> request :body :user :username)
         password (-> request :body :user :password)
@@ -74,9 +42,9 @@
              :body user})))
 
 (defn register [request]
-  (if-let* [username (-> request :body :user :username)
-            password (-> request :body :user :password)
-            alien (-> request :body :user :alien)]
+  (if-let* [ username (-> request :body :user :username)
+             password (-> request :body :user :password)
+             alien (-> request :body :user :alien)]
     (if alien
       (db/register-alien username password)
       (db/register-agent username password))))
