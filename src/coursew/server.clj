@@ -13,7 +13,15 @@
    [ring.util.response :only [response]]
    [coursew.database :as db]))
 
-
+(defmacro if-let*
+ ([bindings then]
+  `(if-let* ~bindings ~then nil))
+ ([bindings then else]
+  (if (seq bindings)
+    `(if-let [~(first bindings) ~(second bindings)]
+       (if-let* ~(drop 2 bindings) ~then ~else)
+       ~else)
+    then)))
 ;; LocalDate json encoding
 (extend-protocol JSONable
   java.time.LocalDate
@@ -65,10 +73,17 @@
         {:status 200
              :body user})))
 
+(defn register [request]
+  (if-let* [username (-> request :body :user :username)
+            password (-> request :body :user :password)
+            alien (-> request :body :user :alien)]
+    (if alien
+      (db/register-alien username password)
+      (db/register-agent username password))))
+
 (compojure/defroutes routes
   (compojure/POST "/api/users/login" request (login request))
-  ; (compojure/PUT "/patient/:id" [id :as request] (update-patient request))
-  ; (compojure/DELETE "/patient/:id" [id :as request] (delete-patient request)),
+  (compojure/POST "/api/users/register" request (register request))
   (cjr/not-found "<h1>Page not found!!!</h1>"))
 
 (def app (-> routes

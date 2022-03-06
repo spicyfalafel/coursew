@@ -1,36 +1,107 @@
--- Функция получения всех пришельцев, за которыми следит данный агент
-create or replace function get_tracking_aliens_by_agent_id(agent_id integer)
-    returns table
-            (
-                alien_info_id integer,
-                first_name    varchar(64),
-                second_name   varchar(64),
-                age           integer,
-                profession    varchar(64),
-                city          varchar(64),
-                country       varchar(64)
-            )
+-- show all aliens requests with request_type VISIT
+-- ???
+
+
+-- функция для регистрации пользователя (с выбором роли)
+create or replace function register_user(username text, password text, alien bool default false)
+    returns int
 as
 $$
+declare
+    ret_id int;
+    role_name text := 'AGENT';
 begin
-    return query select ai.id, ap.first_name, ap.second_name, ap.age, p.name, l.city, l.country
-                 from alien_personality ap
-                          join profession p on ap.profession_id = p.id
-                          join location l on ap.location_id = l.id
-                          join alien_info ai on ap.id = ai.personality_id
-                 where ap.id in
-                       (select personality_id
-                        from agent_alien aa
-                                 join alien_info ai on aa.alien_info_id = ai.id
-                        where agent_info_id = agent_id
-                          and start_date <= current_date
-                          and (end_date is null or end_date >= current_date));
+    if alien then role_name := 'ALIEN';
+    end if;
+    insert into "user" (username, passw_hash) values(username, password) returning id into ret_id;
+
+    insert into user_roles(user_id, role_id) values(ret_id, (select id from role where name = role_name));
+    return ret_id;
 end;
 $$ language plpgsql;
 
 
--- Функция получения всех заявок, которые надо обработать данному агенту
-create or replace function get_requests_by_agent_id(agent_id integer, req_type varchar(64))
+-- функция возвращает всех пользователей с ролью role
+create or replace function get_user_by_role(role_name varchar(32))
+    returns table
+            (id int,
+            username varchar(64),
+            passw_hash varchar(64),
+            user_photo bytea)
+as
+$$
+begin
+    return query select u.id, u.username, u.passw_hash, u.user_photo from "user" u
+        join user_roles ur on u.id = ur.user_id
+        join role r on ur.role_id = r.id where r.name = role_name;
+end;
+$$ language plpgsql;
+
+-- функция для того, чтобы узнать базовую информацию о пришельцах, за которыми следит агент с заданным id
+create or replace function get_aliens_by_agent_id_main(agent_id int)
+    returns table
+            (alien_info_id integer,
+            username varchar(64),
+            user_photo bytea,
+            alien_status varchar(64),
+            personality_id int,
+            departure_date date
+            )
+as
+$$
+begin
+    return query select al.id, u.username, u.user_photo, s.name, al.personality_id, al.departure_date
+                 from agent_info ag
+                 join agent_alien aa on ag.id = aa.agent_info_id
+                 join alien_info al on aa.alien_info_id = al.id
+                 join alien_status s on al.alien_status_id = s.id
+                 join "user" u on u.id = al.user_id
+                where ag.id=agent_id and s.name = 'ON EARTH';
+end;
+$$ language plpgsql;
+
+-- функция для того, чтобы узнать детальную информацию о конкретном пришельце с заданным id,
+-- за которым следит агент
+create or replace function get_alien_details_by_alien_id(alien_id int)
+    returns table
+            (
+                alien_info_id integer,
+                username varchar(64),
+                user_photo bytea,
+                departure_date date,
+                alien_status varchar(64),
+                first_name varchar(64),
+                second_name varchar(64),
+                age int,
+                person_photo bytea,
+                city varchar(64),
+                country varchar(64),
+                profession varchar(64)
+            )
+as
+$$
+begin
+    return query select al.id, u.username, u.user_photo, al.departure_date,
+       s.name,
+       p.first_name, p.second_name, p.age, p.person_photo,
+       l.city, l.country,
+       prof.name
+            from alien_info al
+            join alien_personality p on p.id = al.personality_id
+            join location l on l.id = p.location_id
+            join "user" u on al.id = u.id
+            join alien_status s on al.alien_status_id = s.id
+            join profession prof on prof.id = p.profession_id
+            where al.id = alien_id and s.name = 'ON EARTH';
+
+end;
+$$ language plpgsql;
+
+
+
+-- Функция получения всех заявок типа req_type, которые надо обработать
+-- данному агенту с id user_id
+create or replace function get_requests_by_agent_id(user_id integer, req_type varchar(64))
     returns table
             (
                 request_id     integer,
@@ -48,11 +119,11 @@ begin
                           join "user" u on r.creator_id = u.id
                           join request_type rt on r.type_id = rt.id
                           join request_status rs on r.status_id = rs.id
-                 where (agent_id is null and executor_id is null) or
-                       (r.executor_id = (select user_id from agent_info where id = agent_id) and (rt.name = req_type or req_type is null));
+                 where (executor_id is null) or
+                       (r.executor_id = user_id
+                        and (rt.name = req_type or req_type is null));
 end;
 $$ language plpgsql;
-
 
 -- Функция для получения всех пользователей с ролью role
 create or replace function get_all_users_with_role(role varchar(32))

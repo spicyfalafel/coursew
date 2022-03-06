@@ -9,6 +9,12 @@
 (defn home []
   [:div "this is home panel"])
 
+(defn errors-list
+  [errors]
+  [:ul.error-messages
+   (for [[k [v]] errors]
+     ^{:key k} [:li (str (name k) " " v)])])
+
 ;; login
 (defn login []
   (let [default {:login "" :password ""}
@@ -37,8 +43,47 @@
           [:label.form-label {:for :passw} "Password"]]
          [:button.btn.btn-primary.btn-block {:type :submit} "OK"]]]))))
 
-(defn register []
-  [:div "register panel"])
+(defn register
+  []
+  (let [default {:username "" :password ""}
+        registration (reagent/atom default)]
+    (fn []
+      (let [{:keys [username password]} @registration
+            errors @(subscribe [:errors])
+            register-user (fn [event registration]
+                            (.preventDefault event)
+                            (dispatch [:register-user registration]))]
+
+         [:div.row.align-items-center.justify-content-center
+            [:form.col-4.text-center.w-25 {:on-submit #(register-user % @registration)}
+             [:h1 "Sign up"]
+
+             [:div.form-outline
+              [:input.form-control {:id :username
+                                    :type        "text"
+                                    :value       username
+                                    :on-change   #(swap! registration assoc :username (-> % .-target .-value))}]
+              [:label.form-label {:for :username} "Username"]]
+
+             [:div.form-outline
+                 [:input.form-control {:id :pass
+                                       :type        "password"
+                                       :value       password
+                                       :on-change   #(swap! registration assoc :password (-> % .-target .-value))}]
+                 [:label.form-label {:for :pass} "Password"]]
+
+             [:div.form-outline
+               [:div "I am..."
+                  [:div.btn-group {:field :single-select :id :unique.position}
+                   [:button.btn.btn-info {:key false} "Agent"]
+                   [:button.btn.btn-info {:key :true} "Alien"]]]]
+
+             [:div.form-outline.mt-3
+              [:button.btn.btn-primary.pull-xs-right "OK"]]
+
+             [:p.text-xs-center
+              [:a {:href (url-for :login)} "Have an account?"]]
+             (when (:register-user errors) [errors-list (:register-user errors)])]]))))
 
 (defn header []
   (let [user @(subscribe [:user])
@@ -84,6 +129,8 @@
     :aliens [aliens]
     :another [another]
     [home]))
+
+
 
 ;; main
 

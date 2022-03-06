@@ -13,3 +13,8 @@
  :user ;; usage: (subscribe [:user])
  (fn [db _]
    (:user db)))
+
+(reg-sub
+ :errors ;; usage: (subscribe [:errors])
+ (fn [db _]
+   (:errors db)))

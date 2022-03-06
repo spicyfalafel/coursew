@@ -94,6 +94,9 @@
 ;    (jdbc/insert! pg-db :patient pat)))
 ;
 
+(defn register-alien [username password]
+  (jdbc/db-do-commands pg-db ["select from register-user(?, ?)" username password]))
+
 (defn alien-info []
   (jdbc/query pg-db (sql/format {:select [:*]
                                  :from [:alien_info]})))

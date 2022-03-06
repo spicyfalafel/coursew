@@ -134,8 +134,6 @@
                  :on-success      [:login-success]       ;; trigger :login-success event
                  :on-failure      [:api-request-error {:request-type :login}]}})) ;; trigger :api-request-error event
 
-
-
 (reg-event-fx
  :login-success
  ;; The standard set of interceptors, defined above, which we
@@ -155,6 +153,42 @@
    (println "user " user)
    (println "event " event)
    {:db         event
+    :dispatch [:set-active-page {:page :home}]}))
+
+
+
+;; -- POST Registration @ /api/users ------------------------------------------
+;;
+(reg-event-fx                                              ;; usage (dispatch [:register-user registration])
+ :register-user                                            ;; triggered when a users submits registration form
+ (fn [{:keys [db]} [_ registration]]                       ;; registration = {:username ... :email ... :password ...}
+   {:db         db
+    :http-xhrio {:method          :post
+                 :uri             (endpoint "users")     ;; evaluates to "api/users"
+                 :params          {:user registration}   ;; {:user {:username ... :email ... :password ...}}
+                 :format          (json-request-format)  ;; make sure it's json
+                 :response-format (json-response-format {:keywords? true}) ;; json response and all keys to keywords
+                 :on-success      [:register-user-success] ;; trigger :register-user-success event
+                 :on-failure      [:api-request-error {:request-type :register-user}]}})) ;; trigger :api-request-error event
+(reg-event-fx
+ :register-user-success
+ ;; The standard set of interceptors, defined above, which we
+ ;; use for all user-modifying event handlers. Looks after
+ ;; writing user to LocalStore.
+ ;; NOTE: this chain includes `path` and `trim-v`
+ set-user-interceptor
+
+ ;; The event handler function.
+ ;; The "path" interceptor in `set-user-interceptor` means 1st parameter is the
+ ;; value at `:user` path within `db`, rather than the full `db`.
+ ;; And, further, it means the event handler returns just the value to be
+ ;; put into `:user` path, and not the entire `db`.
+ ;; So, a path interceptor makes the event handler act more like clojure's `update-in`
+ (fn [user event]
+   (println "register success")
+   (println "user " user)
+   (println "event " event)
+   {:db       event
     :dispatch [:set-active-page {:page :home}]}))
 
 (reg-event-fx                                            ;; usage (dispatch [:logout])
