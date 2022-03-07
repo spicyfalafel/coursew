@@ -30,7 +30,8 @@
   (to-json [dt gen]
     (cheshire.generate/write-string gen (str dt))))
 
-
+;; 1) заходит агент. надо выдать инфу юзера + айди агента, никнейм
+;; 2) заходит пришелец. надо выдать инфу юзера
 (defn login [request]
   (let [username (-> request :body :user :username)
         password (-> request :body :user :password)
@@ -38,20 +39,32 @@
     (if (empty? user)
         {:status 404
          :body [(str "no such user " username " " password)]}
-        {:status 200
-             :body user})))
+        (let [user-id (:id user)]
+          (if-let [agent-info (db/get-if-agent user-id)]
+                  {:status 200 :body (merge user (first agent-info))}
+                  (if-let [alien-info (db/get-if-alien user-id)]
+                    {:status 200 :body (merge user (first alien-info))}
+                    {:status 404 :body "error"}))))))
 
 (defn register [request]
-  (if-let* [username (-> request :body :user :username)
-             password (-> request :body :user :password)
-             alien (-> request :body :user :alien)]
+  (let [username (-> request :body :user :username)
+        password (-> request :body :user :password)
+        alien (-> request :body :user :alien)]
     (if alien
       (db/register-alien username password)
       (db/register-agent username password))))
 
+(login {:body {:user {:username "myus" :password "myus"}}})
+(defn my-aliens [request])
+
+(defn my-requests [request])
+
+
 (compojure/defroutes routes
   (compojure/POST "/api/users/login" request (login request))
   (compojure/POST "/api/users/register" request (register request))
+  (compojure/GET "/api/my-aliens" request (my-aliens request))
+  (compojure/GET "/api/my-requests" request (my-requests request))
   (cjr/not-found "<h1>Page not found!!!</h1>"))
 
 (def app (-> routes

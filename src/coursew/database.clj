@@ -118,18 +118,45 @@
 ;
 
 (defn register-alien [username password]
-  (jdbc/query pg-db ["select register_user(?, ?, true)" username password]))
+  (jdbc/query pg-db ["select * from register_user(?, ?, true)" username password]))
 
 (defn register-agent [username password]
-  (jdbc/query pg-db ["select register_user(?, ?, false)" username password]))
+  (jdbc/query pg-db ["select * from register_user(?, ?, false)" username password]))
 
-(defn alien-info []
-  (jdbc/query pg-db (sql/format {:select [:*]
+(defn agent-info-sql [user-id]
+  (sql/format {:select [:ai.id :ai.nickname]
+               :from [[[:raw "\"user\" u"]]]
+               :join [[:agent_info :ai] [:= :ai.user_id :u.id]]
+               :where [:and [:= :u.id user-id] [:= :true :ai.is_alive]]}))
 
-                                 :from [:alien_info]})))
+(defn get-roles [user-id]
+  (jdbc/query pg-db ["select r.name from \"user\" u
+                      join user_roles ur on u.id = ur.user_id
+                      join role r on ur.role_id = r.id where u.id = ?" user-id]))
+
+(defn agent-info [user-id]
+  (jdbc/query pg-db ["select id as agent_info, nickname from agent_info where user_id = ?" user-id]))
+
+(defn alien-info [user-id]
+  (jdbc/query pg-db ["select ai.id as alien_id, ai.departure_date, s.name as status from alien_info ai
+                     join alien_status s on s.id = ai.alien_status_id where ai.user_id = ?" user-id]))
+(defn get-if-agent [user-id]
+  (when-let [names (map #(:name %) (get-roles user-id))]
+    (when (some #{"AGENT"} names)
+      (agent-info user-id))))
+
+(defn get-if-alien [user-id]
+  (let [roles (get-roles user-id)]
+    (when (some #{"ALIEN"} (map #(:name %) roles))
+      (alien-info user-id))))
+
+(defn get-agent-info [user-id]
+  (jdbc/query pg-db (agent-info-sql user-id)))
+
 
 (defn user-by-cred [username passw]
-  (jdbc/query pg-db ["select * from \"user\" where username=? and passw_hash=?" username passw]))
+  (first
+    (jdbc/query pg-db ["select id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))
 
 (comment
   (user-by-cred "123" "123")

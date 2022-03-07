@@ -8,7 +8,8 @@
    ; [day8.re-frame.tracing :refer-macros [fn-traced]]
    [clojure.string :as str]
    [cljs.reader :as rdr]
-   [mibui.routes :as routes]))
+   [mibui.routes :as routes]
+   [clojure.set :as set]))
 
 ; (reg-event-fx
 ;   ::navigate
@@ -150,9 +151,6 @@
  ;; put into `:user` path, and not the entire `db`.
  ;; So, a path interceptor makes the event handler act more like clojure's `update-in`
  (fn [cofx event]
-   (println "login success")
-   (println "user " cofx)
-   (println "event " event)
    {:db         (first (first event))
     :dispatch [:set-active-page {:page :home}]}))
 
@@ -186,7 +184,8 @@
  ;; put into `:user` path, and not the entire `db`.
  ;; So, a path interceptor makes the event handler act more like clojure's `update-in`
  (fn [user event]
-   {:db  (assoc user :user_id (:register_user event))
+   {:db (first (first event))
+    ; (set/rename-keys (first (first event)) {:register_user :id})
     :dispatch [:set-active-page {:page :home}]}))
 
 (reg-event-fx                                            ;; usage (dispatch [:logout])

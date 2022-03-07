@@ -1,19 +1,21 @@
 -- show all aliens requests with request_type VISIT
 --
 -- show all available nicnnames
-create or replace function get_available_nickname()
-    returns varchar(64)
-as
-$$
-begin
-  select distinct nickname from agent_info where is_alive = true;
-end;
-$$ language plpgsql;
+-- create or replace function get_available_nickname()
+--     returns varchar(64)
+-- as
+-- $$
+-- begin
+--   select distinct nickname from agent_info where is_alive = true;
+-- end;
+-- $$ language plpgsql;
 
-
+select * from "user" where username like 'my%';
 -- функция для регистрации пользователя (с выбором роли)
 create or replace function register_user(uname text, password text, alien bool default false)
-    returns int
+    returns table (user_id int,
+                   username varchar(64),
+                   user_photo bytea)
 as
 $$
 declare
@@ -25,38 +27,12 @@ begin
     insert into "user" (username, passw_hash) values (uname, password) returning id into ret_id;
 
     insert into user_roles(user_id, role_id) values (ret_id, (select id from role where name = role_name));
-    return ret_id;
+    return query (select u.id, u.username, u.user_photo from "user" u where u.id = ret_id);
 end;
 $$ language plpgsql;
 
-select * from register_user('username1', 'password1', false);
 
-select * from "user" where id = 1109;
-create or replace function f(int)
-returns int
-as
-    $$
-    begin
-        return $1;
-    end;
-    $$ language plpgsql;
 
-select f(1);
--- функция возвращает всех пользователей с ролью role
-create or replace function get_user_by_role(role_name varchar(32))
-    returns table
-            (id int,
-            username varchar(64),
-            passw_hash varchar(64),
-            user_photo bytea)
-as
-$$
-begin
-    return query select u.id, u.username, u.passw_hash, u.user_photo from "user" u
-        join user_roles ur on u.id = ur.user_id
-        join role r on ur.role_id = r.id where r.name = role_name;
-end;
-$$ language plpgsql;
 
 -- функция для того, чтобы узнать базовую информацию о пришельцах, за которыми следит агент с заданным id
 create or replace function get_aliens_by_agent_id_main(agent_id int)
@@ -146,60 +122,20 @@ begin
 end;
 $$ language plpgsql;
 
--- Функция для получения всех пользователей с ролью role
-create or replace function get_all_users_with_role(role varchar(32))
+-- функция возвращает всех пользователей с ролью role
+create or replace function get_user_by_role(role_name varchar(32))
     returns table
-            (
-                user_id  integer,
-                username varchar(64)
-            )
+            (id int,
+            username varchar(64),
+            user_photo bytea)
 as
 $$
 begin
-    return query select ur.user_id, u.username
-                 from user_roles ur
-                          join role r on ur.role_id = r.id
-                          join "user" u on ur.user_id = u.id
-                 where r.name = role;
+    return query select u.id, u.username, u.user_photo from "user" u
+        join user_roles ur on u.id = ur.user_id
+        join role r on ur.role_id = r.id where r.name = role_name;
 end;
 $$ language plpgsql;
-
-
--- Функция для получения личной информации пришельца
-create or replace function get_alien_info_by_user_id(uid integer)
-    returns table
-            (
-                first_name     varchar(64),
-                second_name    varchar(64),
-                age            integer,
-                profession     varchar(64),
-                city           varchar(64),
-                country        varchar(64),
-                person_photo   bytea,
-                departure_date date,
-                alien_status   varchar(32)
-            )
-as
-$$
-begin
-    return query select ap.first_name,
-                        ap.second_name,
-                        ap.age,
-                        p.name,
-                        l.city,
-                        l.country,
-                        ap.person_photo,
-                        ai.departure_date,
-                        als.name
-                 from alien_info ai
-                          join alien_personality ap on ai.personality_id = ap.id
-                          join profession p on ap.profession_id = p.id
-                          join location l on ap.location_id = l.id
-                          join alien_status als on ai.alien_status_id = als.id
-                 where ai.user_id = uid;
-end;
-$$ language plpgsql;
-
 
 -- Функция для получения предупреждений для определенного пришельца
 create or replace function get_warnings_by_user_id(uid integer)
@@ -239,3 +175,8 @@ begin
     return profession_ids;
 end;
 $$ language plpgsql;
+
+select r.name from "user" u
+    join user_roles ur on u.id = ur.user_id
+    join role r on ur.role_id = r.id where u.id = 1002;
+
