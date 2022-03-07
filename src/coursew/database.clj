@@ -3,10 +3,9 @@
   (:require
    [honey.sql :as sql]
    [clojure.java.jdbc :as jdbc]
-   ;;[clojure.string :as string]
-   ;;[honeysql.format :as sqlf]
    [honey.sql.helpers :refer :all :as h]
-   [java-time :as time])
+   [clojure.edn :as edn]
+   [clojure.java.io :as io])
   (:import [java.sql Timestamp]
            [java.sql Date]
            [java.sql Connection]
@@ -15,14 +14,35 @@
            [java.time.format DateTimeFormatter]
            [java.time LocalDate]
            [java.time Instant]
-           [java.io FileWriter]))
+           [java.io FileWriter]
+           [java.io PushbackReader]))
 
 
-(def pg-db {:dbtype "postgresql"
-            :dbname "postgres"
-            :host "localhost"
-            :user "postgres"
-            :password "root"})
+
+(defn load-edn
+  "Load edn from an io/reader source (filename or io/resource)."
+  [source]
+  (try
+    (with-open [r (io/reader source)]
+      (edn/read (java.io.PushbackReader. r)))
+
+    (catch java.io.IOException e
+      (printf "Couldn't open '%s': %s\n" source (.getMessage e)))
+    (catch RuntimeException e
+      (printf "Error parsing edn file '%s': %s\n" source (.getMessage e)))))
+
+(defn load-config []
+  (load-edn "database-config.edn"))
+
+
+(def pg-db
+  (if-let [config (load-config)]
+    config
+    {:dbtype "postgresql"
+     :dbname "postgres"
+     :host "localhost"
+     :user "postgres"
+     :password "root"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; date insertion fix
 (extend-protocol jdbc/IResultSetReadColumn
@@ -102,26 +122,20 @@
 
 (defn register-agent [username password]
   (jdbc/query pg-db ["select register_user(?, ?, false)" username password]))
-                                   ; username password]))
 
 (defn alien-info []
   (jdbc/query pg-db (sql/format {:select [:*]
+
                                  :from [:alien_info]})))
 
 (defn user-by-cred [username passw]
   (jdbc/query pg-db ["select * from \"user\" where username=? and passw_hash=?" username passw]))
 
 (comment
-  (def pat {:firstname "a"
-            :lastname "b"
-            :gender_id 1
-            :birthdate #time/ld "2000-01-01"
-            :address "ffsfff"
-            :polys_id 4444414444444444})
-
   (user-by-cred "123" "123")
   (user-by-cred "1" "1")
 
-  (register-agent "1234" "1234")
+  (register-alien "fsdf" "fsdfsd")
+  (first (register-agent "12345fsdfsd6" "123456"))
 
   (jdbc/query pg-db ["select * from register_user(?, ?)" "2" "2"]))

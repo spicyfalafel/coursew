@@ -21,5 +21,7 @@
   (routes/start!)
   (println "initialize-db")
   (re-frame/dispatch-sync [:initialize-db])
+  (println "dev setup!")
   (dev-setup)
+  (println "mount-root")
   (mount-root))

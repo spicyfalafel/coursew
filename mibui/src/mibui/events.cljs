@@ -5,7 +5,7 @@
    [mibui.db :as db :refer [default-db set-user-ls remove-user-ls]]
    [ajax.core :refer [json-request-format json-response-format]]
    [day8.re-frame.http-fx]
-   [day8.re-frame.tracing :refer-macros [fn-traced]]
+   ; [day8.re-frame.tracing :refer-macros [fn-traced]]
    [clojure.string :as str]
    [cljs.reader :as rdr]
    [mibui.routes :as routes]))
@@ -37,7 +37,8 @@
 ;; A chain of interceptors is a vector.
 ;; Explanation of `trim-v` is given further below.
 ;;
-(def set-user-interceptor [(path :user)        ;; `:user` path within `db`, rather than the full `db`.
+(def set-user-interceptor [(path :user)
+                           (println "set-user-interceptor");; `:user` path within `db`, rather than the full `db`.
                            (after set-user-ls) ;; write user to localstore (after)
                            trim-v])            ;; removes first (event id) element from the event vec
 
@@ -56,11 +57,11 @@
   [& params]
   (str/join "/" (cons api-url params)))
 
-(defn auth-header
-  "Get user token and format for API authorization"
-  [db]
-  (when-let [token (get-in db [:user :token])]
-    [:Authorization (str "Token " token)]))
+; (defn auth-header
+;   "Get user token and format for API authorization"
+;   [db]
+;   (when-let [token (get-in db [:user :token])]
+;     [:Authorization (str "Token " token)]))
 
 (defn add-epoch
   "Add :epoch timestamp based on :createdAt field."
@@ -82,7 +83,6 @@
 ;;
 
 
-
 (reg-event-fx                                            ;; usage: (dispatch [:initialise-db])
  :initialize-db                                          ;; sets up initial application state
 
@@ -98,6 +98,7 @@
 (reg-fx
  :set-url
  (fn [{:keys [url]}]
+   (println "set-url")
    (routes/set-token! url)))
 
 (reg-event-fx                                            ;; usage: (dispatch [:set-active-page {:page :home})
@@ -109,14 +110,14 @@
        ;; -- URL @ "/" --------------------------------------------------------
        :home {:db         set-page}
        ;; -- URL @ "/login" | "/register" | "/settings" -----------------------
-       (:login :register :settings) {:db set-page} ;; `case` can group multiple clauses that do the same thing.
+       (:login :register :settings) {:db set-page})))) ;; `case` can group multiple clauses that do the same thing.
                                                    ;; ie., `(:login :register :settings) {:db set-page}` is the same as
                                                    ;;      ```
                                                    ;;      :login {:db set-page}
                                                    ;;      :register {:db set-page}
                                                    ;;      :settings {:db set-page}
                                                    ;;      ```
-       :aliens {:db set-page}))))
+       ; :aliens {:db set-page}))))
        ; {:db set-page}))))
 
 
@@ -148,11 +149,11 @@
  ;; And, further, it means the event handler returns just the value to be
  ;; put into `:user` path, and not the entire `db`.
  ;; So, a path interceptor makes the event handler act more like clojure's `update-in`
- (fn [user event]
+ (fn [cofx event]
    (println "login success")
-   (println "user " user)
+   (println "user " cofx)
    (println "event " event)
-   {:db         event
+   {:db         (first (first event))
     :dispatch [:set-active-page {:page :home}]}))
 
 
@@ -164,7 +165,7 @@
  (fn [{:keys [db]} [_ registration]]                       ;; registration = {:username ... :email ... :password ...}
    {:db         db
     :http-xhrio {:method          :post
-                 :uri             (endpoint "users")     ;; evaluates to "api/users"
+                 :uri             (endpoint "users" "register")     ;; evaluates to "api/users/register"
                  :params          {:user registration}   ;; {:user {:username ... :email ... :password ...}}
                  :format          (json-request-format)  ;; make sure it's json
                  :response-format (json-response-format {:keywords? true}) ;; json response and all keys to keywords
@@ -185,10 +186,7 @@
  ;; put into `:user` path, and not the entire `db`.
  ;; So, a path interceptor makes the event handler act more like clojure's `update-in`
  (fn [user event]
-   (println "register success")
-   (println "user " user)
-   (println "event " event)
-   {:db       event
+   {:db  (assoc user :user_id (:register_user event))
     :dispatch [:set-active-page {:page :home}]}))
 
 (reg-event-fx                                            ;; usage (dispatch [:logout])

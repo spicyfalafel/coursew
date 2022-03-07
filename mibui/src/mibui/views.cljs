@@ -6,6 +6,13 @@
    [mibui.routes :as routes :refer [url-for]]
    [mibui.subs :as subs]))
 
+
+(defn radio [label name value]
+  [:div.radio
+   [:label
+    [:input {:field :radio :name name :value value}]
+    label]])
+
 (defn home []
   [:div "this is home panel"])
 
@@ -15,7 +22,7 @@
    (for [[k [v]] errors]
      ^{:key k} [:li (str (name k) " " v)])])
 
-;; login
+; login
 (defn login []
   (let [default {:login "" :password ""}
         credentials (reagent/atom default)
@@ -45,10 +52,10 @@
 
 (defn register
   []
-  (let [default {:username "" :password ""}
+  (let [default {:username "" :password "" :alien false}
         registration (reagent/atom default)]
     (fn []
-      (let [{:keys [username password]} @registration
+      (let [{:keys [username password alien]} @registration
             errors @(subscribe [:errors])
             register-user (fn [event registration]
                             (.preventDefault event)
@@ -72,18 +79,24 @@
                                        :on-change   #(swap! registration assoc :password (-> % .-target .-value))}]
                  [:label.form-label {:for :pass} "Password"]]
 
-             [:div.form-outline
-               [:div "I am..."
-                  [:div.btn-group {:field :single-select :id :unique.position}
-                   [:button.btn.btn-info {:key false} "Agent"]
-                   [:button.btn.btn-info {:key :true} "Alien"]]]]
+             [:div.form-check.d-flex.justify-content-center
+              [:input.form-check-input.m-1 {:id :alien
+                                            :type "checkbox"
+                                            :value alien
+                                            :on-change
+                                            (fn [_] (doall (println (not alien))
+                                                           (swap! registration assoc :alien (not alien))))}]
+                                                        ;                                      not
+                                                        ;                                      some?)))}]
 
+              [:label {:class "form-check-label", :for :alien} "I am alien"]]
              [:div.form-outline.mt-3
               [:button.btn.btn-primary.pull-xs-right "OK"]]
 
              [:p.text-xs-center
-              [:a {:href (url-for :login)} "Have an account?"]]
-             (when (:register-user errors) [errors-list (:register-user errors)])]]))))
+              [:a {:href (url-for :login)} "Have an account?"]]]]))))
+; (when (:register-user errors) [errors-list (:register-user errors)])
+
 
 (defn header []
   (let [user @(subscribe [:user])
@@ -127,7 +140,7 @@
     :login [login]
     :register [register]
     :aliens [aliens]
-    :another [another]
+    ; :another [another]
     [home]))
 
 

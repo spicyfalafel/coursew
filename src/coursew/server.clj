@@ -10,7 +10,10 @@
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
    [ring.util.response :only [response]]
-   [coursew.database :as db]))
+   [coursew.database :as db])
+  (:gen-class))
+
+
 
 (defmacro if-let*
  ([bindings then]
@@ -28,9 +31,6 @@
     (cheshire.generate/write-string gen (str dt))))
 
 
-(defn get-patients []
-              (generate-string (db/get-patients) {:pretty true}))
-
 (defn login [request]
   (let [username (-> request :body :user :username)
         password (-> request :body :user :password)
@@ -42,7 +42,7 @@
              :body user})))
 
 (defn register [request]
-  (if-let* [ username (-> request :body :user :username)
+  (if-let* [username (-> request :body :user :username)
              password (-> request :body :user :password)
              alien (-> request :body :user :alien)]
     (if alien
