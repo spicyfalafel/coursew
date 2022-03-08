@@ -122,7 +122,6 @@
                  join \"user\" u on u.id = al.user_id
                  where ag.id=? and s.name = 'ON EARTH'" agent-id]))
 
-
 (defn user-by-cred [username passw]
   (first
     (jdbc/query pg-db ["select id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))

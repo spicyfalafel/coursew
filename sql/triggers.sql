@@ -59,6 +59,7 @@ create trigger check_creator_executor_roles before insert or update on request
     for each row execute procedure check_creator_executor_roles();
 
 
+
 -- Проверка для таблицы agent_info, что USER_ID - пользователь с ролью “Агент”
 create or replace function check_agent_role() returns trigger as $$
 declare
@@ -162,7 +163,7 @@ create trigger check_pending_form_duplicates before insert on alien_form
 create or replace function check_alive_nickname_duplicates() returns trigger as $$
 begin
     if exists(select 1 from agent_info where nickname = new.nickname and is_alive and new.is_alive) then
-        raise exception 'alive agent with the same nickname already exists';
+        raise exception 'alive agent with the same nickname already exists: %', new.nickname;
     end if;
     return new;
 end;
