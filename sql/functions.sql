@@ -46,7 +46,7 @@ begin
             curr_nick := agents_nicks[i] || agents_nicks[j];
             nice_nick := not (curr_nick = ANY(nicks));
             if nice_nick then
-                exit;
+                return curr_nick;
             end if;
             end loop;
     end loop;
