@@ -86,59 +86,21 @@
                   Instant/from)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-; (defn get-patients []
-;   (jdbc/query pg-db (sql/format {:select [:patient.firstname
-;                                           :patient.lastname
-;                                           [:gender.name "gender"]
-;                                           :patient.birthdate
-;                                           :patient.address
-;                                           :patient.polys_id]
-;                                  :from [:patient]
-;                                  :join [:gender [:= :gender.id :patient.gender_id]]})))
-;
-; (defn del-patient! [id]
-;   (jdbc/delete! pg-db :patient ["id = ?" id]))
-;
-
-; (defn replace-birthdate-str [patient]
-;   (if-let [birthdate-str (:birthdate patient)]
-;     (assoc patient :birthdate (parse-date birthdate-str))
-;     patient))
-;
-; (defn upd-patient! [patient]
-;   ;; если в параметре есть birthdate, значит надо его поменять на объект даты
-;   ;; если нет, значит менять не надо
-;   (jdbc/update! pg-db :patient (replace-birthdate-str patient)
-;                 ["id = ?" (:id patient)]))
-;
-; (defn ins-patient! [patient]
-;   (let [pat (assoc patient :birthdate  (parse-date (:birthdate patient)))]
-;    (jdbc/insert! pg-db :patient pat)))
-;
-
 (defn register-alien [username password]
   (jdbc/query pg-db ["select * from register_user(?, ?, true)" username password]))
 
 (defn register-agent [username password]
   (jdbc/query pg-db ["select * from register_user(?, ?, false)" username password]))
-
-(defn agent-info-sql [user-id]
-  (sql/format {:select [:ai.id :ai.nickname]
-               :from [[[:raw "\"user\" u"]]]
-               :join [[:agent_info :ai] [:= :ai.user_id :u.id]]
-               :where [:and [:= :u.id user-id] [:= :true :ai.is_alive]]}))
-
 (defn get-roles [user-id]
   (jdbc/query pg-db ["select r.name from \"user\" u
                       join user_roles ur on u.id = ur.user_id
                       join role r on ur.role_id = r.id where u.id = ?" user-id]))
 
 (defn agent-info [user-id]
-  (jdbc/query pg-db ["select id as agent_info, nickname from agent_info where user_id = ?" user-id]))
+  (jdbc/query pg-db ["select id as agent_info_id, nickname from agent_info where user_id = ?" user-id]))
 
 (defn alien-info [user-id]
-  (jdbc/query pg-db ["select ai.id as alien_id, ai.departure_date, s.name as status from alien_info ai
+  (jdbc/query pg-db ["select ai.id as alien_info_id, ai.departure_date, s.name as status from alien_info ai
                      join alien_status s on s.id = ai.alien_status_id where ai.user_id = ?" user-id]))
 (defn get-if-agent [user-id]
   (when-let [names (map #(:name %) (get-roles user-id))]
@@ -150,13 +112,21 @@
     (when (some #{"ALIEN"} (map #(:name %) roles))
       (alien-info user-id))))
 
-(defn get-agent-info [user-id]
-  (jdbc/query pg-db (agent-info-sql user-id)))
+
+(defn aliens-by-agent-id [agent-id]
+  (jdbc/query pg-db ["select al.id as alien_info_id, u.username, u.user_photo, s.name, al.personality_id, al.departure_date
+                 from agent_info ag
+                 join agent_alien aa on ag.id = aa.agent_info_id
+                 join alien_info al on aa.alien_info_id = al.id
+                 join alien_status s on al.alien_status_id = s.id
+                 join \"user\" u on u.id = al.user_id
+                 where ag.id=? and s.name = 'ON EARTH'" agent-id]))
 
 
 (defn user-by-cred [username passw]
   (first
     (jdbc/query pg-db ["select id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))
+
 
 (comment
   (user-by-cred "123" "123")

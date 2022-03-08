@@ -11,33 +11,6 @@
    [mibui.routes :as routes]
    [clojure.set :as set]))
 
-; (reg-event-fx
-;   ::navigate
-;   (fn-traced [_ [_ handler]]
-;    {:navigate handler}))
-;
-; (reg-event-fx
-;  ::set-active-panel
-;  (fn-traced [{:keys [db]} [_ active-panel]]
-;    {:db (assoc db :active-panel active-panel)}))
-;
-
-
-;; -- Interceptors --------------------------------------------------------------
-;; Every event handler can be "wrapped" in a chain of interceptors. Each of these
-;; interceptors can do things "before" and/or "after" the event handler is executed.
-;; They are like the "middleware" of web servers, wrapping around the "handler".
-;; Interceptors are a useful way of factoring out commonality (across event
-;; handlers) and looking after cross-cutting concerns like logging or validation.
-;;
-;; They are also used to "inject" values into the `coeffects` parameter of
-;; an event handler, when that handler needs access to certain resources.
-;;
-;; Each event handler can have its own chain of interceptors. Below we create
-;; the interceptor chain shared by all event handlers which manipulate user.
-;; A chain of interceptors is a vector.
-;; Explanation of `trim-v` is given further below.
-;;
 (def set-user-interceptor [(path :user)
                            (println "set-user-interceptor");; `:user` path within `db`, rather than the full `db`.
                            (after set-user-ls) ;; write user to localstore (after)
@@ -58,11 +31,15 @@
   [& params]
   (str/join "/" (cons api-url params)))
 
-; (defn auth-header
-;   "Get user token and format for API authorization"
-;   [db]
-;   (when-let [token (get-in db [:user :token])]
-;     [:Authorization (str "Token " token)]))
+(defn token-header [db]
+  (let [token (get-in db [:user :token])]
+       {:Token token}))
+
+(defn auth-header
+  "Get user token and format for API authorization"
+  [db]
+  (when-let [token (get-in db [:user :token])]
+    [:Authorization (str "Token " token)]))
 
 (defn add-epoch
   "Add :epoch timestamp based on :createdAt field."
@@ -111,14 +88,14 @@
        ;; -- URL @ "/" --------------------------------------------------------
        :home {:db         set-page}
        ;; -- URL @ "/login" | "/register" | "/settings" -----------------------
-       (:login :register :settings) {:db set-page})))) ;; `case` can group multiple clauses that do the same thing.
+       (:login :register :settings) {:db set-page} ;; `case` can group multiple clauses that do the same thing.
                                                    ;; ie., `(:login :register :settings) {:db set-page}` is the same as
                                                    ;;      ```
                                                    ;;      :login {:db set-page}
                                                    ;;      :register {:db set-page}
                                                    ;;      :settings {:db set-page}
                                                    ;;      ```
-       ; :aliens {:db set-page}))))
+       :aliens {:db set-page}))))
        ; {:db set-page}))))
 
 
@@ -151,7 +128,7 @@
  ;; put into `:user` path, and not the entire `db`.
  ;; So, a path interceptor makes the event handler act more like clojure's `update-in`
  (fn [cofx event]
-   {:db         (first (first event))
+   {:db         (first event)
     :dispatch [:set-active-page {:page :home}]}))
 
 
@@ -200,6 +177,26 @@
    {:db       (dissoc db :user)                          ;; remove user from db
     :dispatch [:set-active-page {:page :home}]}))
 
+
+
+;; -- GET My-aliens @ /api/my-aliens ------------------------------------------
+;; сделать запрос на получение пришельцев для агента используя {:user {:agent_info_id}}
+(reg-event-fx
+ :my-aliens
+ (fn [{:keys [db]} _]
+   {:db         db
+    :http-xhrio {:method          :get
+                 :uri             (endpoint "my-aliens")
+                 :params          {:agent_info_id (get-in db [:user :agent_info_id])}
+                 :format          (json-request-format)
+                 :response-format (json-response-format {:keywords? true})
+                 :on-success      [:my-aliens-success]
+                 :on-failure      [:api-request-error {:request-type :register-user}]}}))
+
+(reg-event-fx
+ :my-aliens-success
+ (fn [db event]
+   {:db (db assoc :my-aliens event)}))
 
 ;; -- Request Handlers -----------------------------------------------------------
 ;;

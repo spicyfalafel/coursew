@@ -32,7 +32,7 @@ end;
 $$ language plpgsql;
 
 
-
+select * from get_aliens_by_agent_id_main(195);
 
 -- функция для того, чтобы узнать базовую информацию о пришельцах, за которыми следит агент с заданным id
 create or replace function get_aliens_by_agent_id_main(agent_id int)

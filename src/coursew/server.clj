@@ -3,17 +3,25 @@
    [immutant.web :as web]
    [compojure.route :as cjr]
    [compojure.core :as compojure]
-   [cheshire.core :refer [generate-string]]
+   ; [cheshire.core :refer [generate-string]]
    [cheshire.generate :refer [JSONable]]
    [ring.middleware.cors :refer [wrap-cors]]
    [ring.middleware.params :refer [wrap-params]]
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
-   [ring.util.response :only [response]]
-   [coursew.database :as db])
+   [ring.middleware.session :refer [wrap-session]]
+   [ring.middleware.session.cookie]
+   ; [ring.util.response :only [response]]
+   ; [buddy.auth.backends.token :refer [token-backend]]
+   ; [buddy.auth.middleware :refer [wrap-authentication]]
+   [coursew.database :as db]
+   [coursew.auth :as auth])
   (:gen-class))
 
-
+;; переделать рисунки в лабе 4
+;; подумать над функциями и триггерами
+;; сделать так, чтобы при регистрации и входе отображалась информация о юзере в хедере
+;; сделать так, чтобы при входе агента получался список его инопланетян my-aliens
 
 (defmacro if-let*
  ([bindings then]
@@ -30,6 +38,7 @@
   (to-json [dt gen]
     (cheshire.generate/write-string gen (str dt))))
 
+
 ;; 1) заходит агент. надо выдать инфу юзера + айди агента, никнейм
 ;; 2) заходит пришелец. надо выдать инфу юзера
 (defn login [request]
@@ -39,11 +48,15 @@
     (if (empty? user)
         {:status 404
          :body [(str "no such user " username " " password)]}
-        (let [user-id (:id user)]
+        (let [user-id (:id user)
+              token (auth/generate-signature username password)
+              user-token (assoc user :token token)]
           (if-let [agent-info (db/get-if-agent user-id)]
-                  {:status 200 :body (merge user (first agent-info))}
+                  {:status 200
+                   :body (merge user-token (first agent-info))}
                   (if-let [alien-info (db/get-if-alien user-id)]
-                    {:status 200 :body (merge user (first alien-info))}
+                    {:status 200
+                     :body (merge user-token (first alien-info))}
                     {:status 404 :body "error"}))))))
 
 (defn register [request]
@@ -55,8 +68,14 @@
       (db/register-agent username password))))
 
 (login {:body {:user {:username "myus" :password "myus"}}})
-(defn my-aliens [request])
 
+
+
+(defn my-aliens [request]
+  (let [agent-id (-> request :params (get "agent_info_id")
+                     Integer/parseInt)]
+    {:status 200
+     :body (db/aliens-by-agent-id agent-id)}))
 (defn my-requests [request])
 
 
@@ -67,14 +86,34 @@
   (compojure/GET "/api/my-requests" request (my-requests request))
   (cjr/not-found "<h1>Page not found!!!</h1>"))
 
+
+; (def no-token-access ["/api/users/login" "/api/users/register"])
+
+;; при логине запомнить токен
+;; при других вызовах смотреть токен, расшифровать
+; (defn wrap-check-token [handler]
+;   (fn [request]
+;       (if (contains? no-token-access (:path-info request))
+;         (handler request)
+;         (let [token (get-in request [:headers :token])
+;               cred (auth/unsign-token token)
+;               user (db/user-by-cred (:username cred) (:password cred))]
+;           (if (not-empty user)
+;             (handler request)
+;             (println "USER WAS EMPTY"))))))
+;
+
+
 (def app (-> routes
              wrap-json-response
              (wrap-json-body {:keywords? true :bigdecimals? true})
              wrap-params
              wrap-keyword-params
+             (wrap-session {:store (ring.middleware.session.cookie/cookie-store)})
              (wrap-cors :access-control-allow-origin [#"http://localhost:8280"] ;; CORS
                         :access-control-allow-methods [:get :post]
                         :access-control-allow-headers ["Origin" "X-Requested-With" "Content-Type" "Accept"])))
+
 
 
 (defn -main [& args]

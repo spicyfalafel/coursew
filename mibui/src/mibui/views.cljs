@@ -127,8 +127,11 @@
 
 
 (defn aliens []
-  [:div "my aliens"])
-
+  (let [my-aliens (dispatch [:my-aliens])]
+    [:div "My aliens"
+     (map (fn [alien]
+            [:div (:alien_info_id alien)]) my-aliens)]))
+     ;
 
 (defn another []
   [:div "again"])

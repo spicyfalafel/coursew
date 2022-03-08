@@ -18,3 +18,8 @@
  :errors ;; usage: (subscribe [:errors])
  (fn [db _]
    (:errors db)))
+
+(reg-sub
+ :my-aliens
+ (fn [db _]
+   (:my-aliens db)))
