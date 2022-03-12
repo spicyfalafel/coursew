@@ -207,6 +207,27 @@
    {:db (assoc db :alien-view alien)
     :dispatch [:set-active-page {:page :alien-view}]}))
 
+
+;; -- POST tracking-report @ /api/my-aliens/id ------------------------------------------
+;; {:report_date <date>, :behavior <0..10>, :description <text>}
+
+(reg-event-fx
+ :send-report
+ (fn-traced [{:keys [db]} [_ alien-id report]]
+   {:db         db
+    :http-xhrio {:method          :post
+                 :uri             (endpoint "my-aliens" alien-id "report")
+                 :params          report
+                 :format          (json-request-format)
+                 :response-format (json-response-format {:keywords? true})
+                 :on-success      [:send-report-success]
+                 :on-failure      [:api-request-error {:request-type :send-report}]}}))
+
+(reg-event-fx
+ :send-report-success
+ (fn-traced [{:keys [db]} [_ answer]]
+   {:db (assoc db :alien-view-success answer)}))
+
 ;; -- Request Handlers -----------------------------------------------------------
 ;;
 

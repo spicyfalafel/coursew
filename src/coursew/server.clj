@@ -18,7 +18,6 @@
    [coursew.auth :as auth])
   (:gen-class))
 
-;; сделать так, чтобы при входе агента получался список его инопланетян my-aliens
 
 (defmacro if-let*
  ([bindings then]
@@ -79,16 +78,34 @@
     {:status 404
      :body (str "no such alien with id " id)}))
 
+(defn report [{:keys [params body] :as request}]
+
+  (if-let* [alien-id (:id params)
+            agent-id (:agent_info_id body)
+            agent-alien-id (db/get-agent-alien agent-id alien-id)
+            report-added (db/report (:report_date body)
+                                    (Integer/parseInt (:behavior body))
+                                    (:description body)
+                                    agent-alien-id)]
+    {:status 200
+     :body report-added}
+    {:status 404
+     :body (str "errors " (str request))}))
+
 
 (defn my-requests [request])
 
 
 (compojure/defroutes routes
-  (compojure/POST "/api/users/login" request (login request))
-  (compojure/POST "/api/users/register" request (register request))
-  (compojure/GET "/api/my-aliens" request (my-aliens request))
-  (compojure/GET "/api/my-aliens/:id" [id] (view-alien id))
-  (compojure/GET "/api/my-requests" request (my-requests request))
+  (compojure/context "/api" []
+    (compojure/POST "/users/login" request (login request))
+    (compojure/POST "/users/register" request (register request))
+    (compojure/context "/my-aliens" []
+      (compojure/GET "/" request (my-aliens request))
+      (compojure/context "/:id" [id]
+        (compojure/GET "/" request (view-alien request))
+        (compojure/POST "/report" request (report request))))
+    (compojure/GET "/api/my-requests" request (my-requests request)))
   (cjr/not-found "<h1>Page not found!!!</h1>"))
 
 

@@ -4,7 +4,9 @@
    [reagent.core :as reagent]
    [mibui.events :as events]
    [mibui.routes :as routes :refer [url-for]]
-   [mibui.subs :as subs]))
+   [mibui.subs :as subs]
+   [cljs-time.core :as time]
+   [cljs-time.format :as time-format]))
 
 
 (defn radio [label name value]
@@ -119,59 +121,81 @@
          [:button.btn.card-link.btn-primary {
                                              :on-click #(.preventDefault %
                                                                          (dispatch [:alien-view (:alien_info_id alien)]))}
-                        ; :href (url-for :alien-view :id (:alien_info_id alien))}
           "Rate behavior"]]]])]))
 
 
 (defn alien []
- (let [al @(subscribe [:alien-view])]
-   [:div.container
-    [:div
-     [:h2 "Alien " (:username al) "(" (:alien_info_id al) ")"]
-     [:img.rounded.float-start {:src "/user.jpg"}]
-     [:h5 "Personality"]
-     [:p "First name: " (:first_name al)
-      [:br] "Second name: " (:second_name al)
-      [:br] "Age: " (:age al)
-      [:br] "Status: " (:status al)
-      [:br] "Country: " (:country al)
-      [:br] "City: " (:city al)
-      [:br] "Profession: " (:profession_name al)]]
-    [:div.align-items-center
-     [:br] [:br] [:br]
-     [:h2.text-center "Daily Report"]
-     [:div.row
-      [:div.mb-3.col
-       [:label.form-label {:for "exampleFormControlTextarea1"} "Comment"]
-       [:textarea.form-control { :id "exampleFormControlTextarea1", :rows "3"}]]
-      [:div.align-items-center.col.text-center
-       [:div.card.align-items-center
-        [:div.card-body.text-center
-         ; [:span.myratings.4.5]
-         [:h4.mt-1 "Behavior rate"]
-         [:fieldset.rating
-          [:input {:type "radio", :id "star5", :name "rating", :value "10"}]
-          [:label.full {:for "star5", :title "Awesome - 10/10"}]
-          [:input {:type "radio", :id "star4half", :name "rating", :value "9"}]
-          [:label.half { :for "star4half", :title "Pretty good - 9/10"}]
-          [:input {:type "radio", :id "star4", :name "rating", :value "8"}]
-          [:label.full { :for "star4", :title "Pretty good - 8/10"}]
-          [:input {:type "radio", :id "star3half", :name "rating", :value "7"}]
-          [:label.half { :for "star3half", :title "Meh - 7/10"}]
-          [:input {:type "radio", :id "star3", :name "rating", :value "6"}]
-          [:label.full {:for "star3", :title "Meh - 6/10"}]
-          [:input {:type "radio", :id "star2half", :name "rating", :value "5"}]
-          [:label.half {:for "star2half", :title "Kinda bad - 5/10"}]
-          [:input {:type "radio", :id "star2", :name "rating", :value "4"}]
-          [:label.full {:for "star2", :title "Kinda bad - 4/10"}]
-          [:input {:type "radio", :id "star1half", :name "rating", :value "3"}]
-          [:label.half {:for "star1half", :title "Meh - 3/10"}]
-          [:input {:type "radio", :id "star1", :name "rating", :value "2"}]
-          [:label.full {:for "star1", :title "Sucks big time - 2/10"}]
-          [:input {:type "radio", :id "starhalf", :name "rating", :value "1"}]
-          [:label.half {:for "starhalf", :title "Sucks big time - 1/10"}]
-          [:input.reset-option {:type "radio", :name "rating", :value "reset"}]" "]]]]]
-     [:button.btn.btn-primary.w-25 "OK"]]]))
+ (let [al @(subscribe [:alien-view])
+       default {:behavior 1 :description ""
+                :agent_info_id (:agent_info_id @(subscribe [:user]))
+                :report_date (time-format/unparse (time-format/formatter "yyyy-MM-dd") (time/today))}
+       report (reagent/atom default)
+       change-rating #(swap! report assoc :behavior (-> % .-target .-value))
+       send-report (fn [event report]
+                     (.preventDefault event)
+                     (dispatch [:send-report (:alien_info_id al) report]))]
+    (fn []
+      (let [{:keys [behavior description report_date]} @report]
+       [:div.container
+        [:div
+         [:h2 "Alien " (:username al) "(" (:alien_info_id al) ")"]
+         [:img.rounded.float-start {:src "/user.jpg"}]
+         [:h5 "Personality"]
+         [:p "First name: " (:first_name al)
+          [:br] "Second name: " (:second_name al)
+          [:br] "Age: " (:age al)
+          [:br] "Status: " (:status al)
+          [:br] "Country: " (:country al)
+          [:br] "City: " (:city al)
+          [:br] "Profession: " (:profession_name al)]]
+        [:form.align-items-center.text-center {:on-submit #(send-report % @report)}
+         [:br] [:br] [:br]
+         [:h2.text-center "Daily Report " report_date]
+         ; [:form {:on-submit #(send-report % @report)}]
+         [:div.row
+          [:div.mb-3.col.text-center
+           [:label.form-label {:for "descriptionTextarea"} "Description"]
+           [:textarea.form-control { :id "descriptionTextarea", :rows "3"
+                                    :on-change #(swap! report assoc :description (-> % .-target .-value))}]]
+          [:div.align-items-center.col.text-center.mb-3
+           [:label.form-label {:for "rating"} "Rate behavior"]
+           [:div.card.align-items-center {:id "rating"}
+            [:div.card-body.text-center
+             [:fieldset.rating
+              [:input {:type "radio", :id "star5", :name "rating", :value "10"
+                       :on-change #(change-rating %)}]
+              [:label.full {:for "star5", :title "Awesome - 10/10"}]
+              [:input {:type "radio", :id "star4half", :name "rating", :value "9"
+                       :on-change #(change-rating %)}]
+              [:label.half { :for "star4half", :title "Pretty good - 9/10"}]
+              [:input {:type "radio", :id "star4", :name "rating", :value "8"
+                       :on-change #(change-rating %)}]
+              [:label.full { :for "star4", :title "Pretty good - 8/10"}]
+              [:input {:type "radio", :id "star3half", :name "rating", :value "7"
+                       :on-change #(change-rating %)}]
+              [:label.half { :for "star3half", :title "Meh - 7/10"}]
+              [:input {:type "radio", :id "star3", :name "rating", :value "6"
+                       :on-change #(change-rating %)}]
+              [:label.full {:for "star3", :title "Meh - 6/10"}]
+              [:input {:type "radio", :id "star2half", :name "rating", :value "5"
+                       :on-change #(change-rating %)}]
+              [:label.half {:for "star2half", :title "Kinda bad - 5/10"}]
+              [:input {:type "radio", :id "star2", :name "rating", :value "4"
+                       :on-change #(change-rating %)}]
+              [:label.full {:for "star2", :title "Kinda bad - 4/10"}]
+              [:input {:type "radio", :id "star1half", :name "rating", :value "3"
+                       :on-change #(change-rating %)}]
+              [:label.half {:for "star1half", :title "Meh - 3/10"}]
+              [:input {:type "radio", :id "star1", :name "rating", :value "2"
+                       :on-change #(change-rating %)}]
+              [:label.full {:for "star1", :title "Sucks big time - 2/10"}]
+              [:input {:type "radio", :id "starhalf", :name "rating", :value "1"
+                       :on-change #(change-rating %)}]
+              [:label.half {:for "starhalf", :title "Sucks big time - 1/10"}]
+              [:input.reset-option {:type "radio", :name "rating", :value "reset"}]" "]]]]]
+         [:button.btn.btn-primary.w-25 "Save"]
+         [:div behavior " " description]]]))))
+
 (defn header []
   (let [user @(subscribe [:user])
         active-page @(subscribe [:active-page])]

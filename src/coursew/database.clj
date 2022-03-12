@@ -144,7 +144,20 @@
                            join alien_status s on al.alien_status_id = s.id
                            join profession prof on prof.id = p.profession_id
                            where al.id = ? and s.name = 'ON EARTH'" alien-info-id])))
-(alien-by-id 2)
+
+(defn get-agent-alien [agent-id alien-id]
+  (first (jdbc/query pg-db ["select id
+                           from agent_alien aa
+                           where alien_info_id = ? and agent_info_id = ?" alien-id agent-id])))
+
+
+
+(defn report [report-date behavior description agent-alien-id]
+  (jdbc/insert! pg-db :tracking_report {:report-date report-date
+                                        :behavior behavior
+                                        :description description
+                                        :agent_alien_id agent-alien-id}))
+
 (defn user-by-cred [username passw]
   (first
     (jdbc/query pg-db ["select id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))
