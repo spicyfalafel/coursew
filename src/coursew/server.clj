@@ -18,9 +18,6 @@
    [coursew.auth :as auth])
   (:gen-class))
 
-;; переделать рисунки в лабе 4
-;; подумать над функциями и триггерами
-;; сделать так, чтобы при регистрации и входе отображалась информация о юзере в хедере
 ;; сделать так, чтобы при входе агента получался список его инопланетян my-aliens
 
 (defmacro if-let*
@@ -67,15 +64,22 @@
       (db/register-alien username password)
       (db/register-agent username password))))
 
-(login {:body {:user {:username "myus" :password "myus"}}})
 
 
 
 (defn my-aliens [request]
-  (let [agent-id (-> request :params (get "agent_info_id")
-                     Integer/parseInt)]
+  (let [agent-id (-> request :params (get "agent_info_id") Integer/parseInt)]
     {:status 200
      :body (db/aliens-by-agent-id agent-id)}))
+
+(defn view-alien [id]
+  (if-let [alien-info (db/alien-by-id (Integer/parseInt id))]
+    {:status 200
+     :body alien-info}
+    {:status 404
+     :body (str "no such alien with id " id)}))
+
+
 (defn my-requests [request])
 
 
@@ -83,25 +87,10 @@
   (compojure/POST "/api/users/login" request (login request))
   (compojure/POST "/api/users/register" request (register request))
   (compojure/GET "/api/my-aliens" request (my-aliens request))
+  (compojure/GET "/api/my-aliens/:id" [id] (view-alien id))
   (compojure/GET "/api/my-requests" request (my-requests request))
   (cjr/not-found "<h1>Page not found!!!</h1>"))
 
-
-; (def no-token-access ["/api/users/login" "/api/users/register"])
-
-;; при логине запомнить токен
-;; при других вызовах смотреть токен, расшифровать
-; (defn wrap-check-token [handler]
-;   (fn [request]
-;       (if (contains? no-token-access (:path-info request))
-;         (handler request)
-;         (let [token (get-in request [:headers :token])
-;               cred (auth/unsign-token token)
-;               user (db/user-by-cred (:username cred) (:password cred))]
-;           (if (not-empty user)
-;             (handler request)
-;             (println "USER WAS EMPTY"))))))
-;
 
 
 (def app (-> routes

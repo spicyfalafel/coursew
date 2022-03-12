@@ -1,5 +1,6 @@
 
 (ns coursew.database
+  (:refer-clojure :exclude [set into group-by update partition-by filter for])
   (:require
    [honey.sql :as sql]
    [clojure.java.jdbc :as jdbc]
@@ -89,8 +90,11 @@
 (defn register-alien [username password]
   (jdbc/query pg-db ["select * from register_user(?, ?, true)" username password]))
 
+
 (defn register-agent [username password]
-  (jdbc/query pg-db ["select * from register_user(?, ?, false)" username password]))
+  (jdbc/query pg-db ["select * from register_agent(?, ?)" username password]))
+
+
 (defn get-roles [user-id]
   (jdbc/query pg-db ["select r.name from \"user\" u
                       join user_roles ur on u.id = ur.user_id
@@ -99,13 +103,16 @@
 (defn agent-info [user-id]
   (jdbc/query pg-db ["select id as agent_info_id, nickname from agent_info where user_id = ?" user-id]))
 
+
 (defn alien-info [user-id]
   (jdbc/query pg-db ["select ai.id as alien_info_id, ai.departure_date, s.name as status from alien_info ai
                      join alien_status s on s.id = ai.alien_status_id where ai.user_id = ?" user-id]))
+
 (defn get-if-agent [user-id]
   (when-let [names (map #(:name %) (get-roles user-id))]
     (when (some #{"AGENT"} names)
       (agent-info user-id))))
+
 
 (defn get-if-alien [user-id]
   (let [roles (get-roles user-id)]
@@ -114,14 +121,30 @@
 
 
 (defn aliens-by-agent-id [agent-id]
-  (jdbc/query pg-db ["select al.id as alien_info_id, u.username, u.user_photo, s.name, al.personality_id, al.departure_date
-                 from agent_info ag
-                 join agent_alien aa on ag.id = aa.agent_info_id
-                 join alien_info al on aa.alien_info_id = al.id
-                 join alien_status s on al.alien_status_id = s.id
-                 join \"user\" u on u.id = al.user_id
-                 where ag.id=? and s.name = 'ON EARTH'" agent-id]))
+  (list (jdbc/query pg-db ["select al.id as alien_info_id, u.username, u.user_photo, s.name as status,
+                           al.personality_id, al.departure_date
+                           from agent_info ag
+                           join agent_alien aa on ag.id = aa.agent_info_id
+                           join alien_info al on aa.alien_info_id = al.id
+                           join alien_status s on al.alien_status_id = s.id
+                           join \"user\" u on u.id = al.user_id
+                           where ag.id=? and s.name = 'ON EARTH'" agent-id])))
 
+(defn alien-by-id [alien-info-id]
+  (first (jdbc/query pg-db ["select u.username, u.user_photo,
+                           s.name as status,
+                           p.first_name, p.second_name, p.age, p.person_photo,
+                           l.city, l.country,
+                           prof.name as profession_name,
+                           al.id as alien_info_id
+                           from alien_info al
+                           join alien_personality p on p.id = al.personality_id
+                           join location l on l.id = p.location_id
+                           join \"user\" u on al.user_id = u.id
+                           join alien_status s on al.alien_status_id = s.id
+                           join profession prof on prof.id = p.profession_id
+                           where al.id = ? and s.name = 'ON EARTH'" alien-info-id])))
+(alien-by-id 2)
 (defn user-by-cred [username passw]
   (first
     (jdbc/query pg-db ["select id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))

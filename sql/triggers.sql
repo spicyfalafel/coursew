@@ -173,6 +173,22 @@ create trigger check_alive_nickname_duplicates before insert or update on agent_
     for each row execute procedure check_alive_nickname_duplicates();
 
 
+-- pending в request_status у request при вставке заявки
+create or replace function set_pending_req_status() returns trigger as $$
+declare
+
+begin
+    if new.status_id is null then
+        new.status_id := (select id from request_status where name = 'PENDING');
+    end if;
+    return new;
+end;
+$$ language plpgsql;
+
+create trigger set_pending_req_status before insert on request
+    for each row execute procedure set_pending_req_status();
+
+
 -- Триггер для проверки того, что тип заявки и статус пришельца совместимы
 create or replace function check_request_type_alien_status() returns trigger as $$
 declare

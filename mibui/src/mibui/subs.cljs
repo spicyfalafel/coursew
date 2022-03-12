@@ -23,3 +23,8 @@
  :my-aliens
  (fn [db _]
    (:my-aliens db)))
+
+(reg-sub
+ :alien-view
+ (fn [db _]
+   (:alien-view db)))

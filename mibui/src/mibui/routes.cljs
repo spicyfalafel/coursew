@@ -4,19 +4,14 @@
    [pushy.core :as pushy]
    [re-frame.core :as re-frame :refer [dispatch]]))
 
-;; The routes setup is inspired by J. Pablo Fernández
-;; source: https://pupeno.com/2015/08/26/no-hashes-bidirectional-routing-in-re-frame-with-bidi-and-pushy/
-
-;; -- Routes ------------------------------------------------------------------
-;; Define routes so that when we enter specific path the router knows what to
-;; show us. A route is simply a data structure--a vector--with a pattern and
-;; a result.
 (def routes
   ["/" {""         :home
         "login"    :login
         "register" :register
-        "aliens"   :aliens
+        "my-aliens/" { "" :my-aliens
+                      [:id ""] :alien-view}
         "another"  :another}])
+
 
 ;; -- History -----------------------------------------------------------------
 ;; we need to know the history of our routes so that we can navigate back and
@@ -41,11 +36,8 @@
   (pushy/start! history))
 
 ;; -- url-for -----------------------------------------------------------------
-;; To dispatch routes in our UI (view) we will use url-for and then pass a
-;; keyword to which route we want to direct the user.
-;; usage: (url-for :home)
-(def url-for (partial bidi/path-for routes))
-
+(defn url-for [& [main id-key id-val]]
+  (bidi/path-for routes main id-key id-val))
 
 ;; -- set-token! --------------------------------------------------------------
 ;; To change route after some actions we will need to set url and for that we

@@ -1,4 +1,46 @@
+
+-- функция создать заявку на VISIT
+create or replace function create_visit_request(userid int, planet_name varchar(64), planet_race varchar(64), visit_purp varchar(64),
+                                                staytime int, comm text)
+    returns void
+as
+$$
+declare
+    planet int := (select id from planet where planet.name = planet_name and planet.race = planet_race);
+    form_id int;
+    type int := (select id from request_type where name = 'VISIT');
+    status int := (select id from request_status where name = 'PENDING');
+begin
+    if planet is null or type is null then
+        raise 'no such planet % %', planet_name, planet_race;
+    end if;
+
+    insert into alien_form(user_id, planet_id, visit_purpose, stay_time, comment)
+    values (userid, planet, visit_purp, staytime, comm) returning id into form_id;
+    insert into request(creator_id, type_id, status_id, alien_form_id)
+    values (userid, type, status, form_id);
+end;
+$$ language plpgsql;
+
+
+-- функция заполнения skill_in_alien_form для конкретной анкеты по именам умений
+create or replace function insert_skill_in_alien_form(form_id int, skills varchar(32)[])
+    returns void
+as
+$$
+declare
+    i int;
+begin
+    for i in select id from skill where name = ANY (skills) loop
+            insert into skill_in_alien_form(alien_form_id, skill_id) values (form_id, i);
+        end loop;
+end;
+$$ language plpgsql;
+
+
 -- функция для регистрации пользователя (с выбором роли)
+-- вообще регистрация агента - другая функция. для пришельца этой достаточно
+-- т.к. потом все равно отправлять анкету
 create or replace function register_user(uname text, password text, alien bool default false)
     returns table (user_id int,
                    username varchar(64),
@@ -17,6 +59,26 @@ begin
     return query (select u.id, u.username, u.user_photo from "user" u where u.id = ret_id);
 end;
 $$ language plpgsql;
+
+
+-- Функция для получения всех профессий, подходящих по навыкам, отсортированные по кол-ву нужных навыков
+-- для конкретного пришельца
+create or replace function get_professions_by_user_id(u_id int)
+    returns table (id integer, name varchar(64))
+as
+$$
+declare
+    user_skills integer[] := array(select skill_id from skill_in_alien_form sf
+                                    join alien_form f on f.id = sf.alien_form_id
+                                    join "user" u on f.user_id = u.id
+                                    where u.id = u_id);
+    prof_ids integer[] := array(select * from get_professions_by_skills(user_skills));
+begin
+
+    return query select * from profession p where p.id = ANY (prof_ids);
+end;
+$$ language plpgsql;
+
 
 
 -- функция для того, чтобы получить наименьший по длине незарегистрированный никнейм
@@ -39,13 +101,18 @@ declare
     nicks varchar(64)[] := ARRAY (select nickname from agent_info where is_alive = true);
 begin
 
-    -- AA -> AZ, BA -> BZ...
+    if nick_len = 1 then
+        for i in 1..letters loop
+            curr_nick := agents_nicks[i];
+            if (not (curr_nick = ANY(nicks))) then
+                return curr_nick;
+            end if;
+            end loop;
+    end if;
     for i in 1..letters loop
-
         for j in 1..letters loop
             curr_nick := agents_nicks[i] || agents_nicks[j];
-            nice_nick := not (curr_nick = ANY(nicks));
-            if nice_nick then
+            if (not (curr_nick = ANY(nicks))) then
                 return curr_nick;
             end if;
             end loop;
@@ -55,25 +122,26 @@ end;
 $$ language plpgsql;
 
 
+drop function register_agent(uname text, password text);
 -- функция для регистрации агента
 create or replace function register_agent(uname text, password text)
-    returns table (user_id int,
-                   username varchar(64),
-                   nickname varchar(64))
+    returns TABLE(user_id integer, username character varying, agent_info_id int, nickname character varying)
+    language plpgsql
 as
 $$
 declare
     ret_id int;
     nick varchar(64);
+    ag_id int;
 begin
     insert into "user" (username, passw_hash) values (uname, password) returning id into ret_id;
     insert into user_roles(user_id, role_id) values (ret_id, (select id from role where name = 'AGENT'));
-    nick := (select from get_available_nickname());
-    insert into agent_info(user_id, nickname, is_alive) values (ret_id, nick, true);
+    nick := (select * from get_available_nickname());
+    insert into agent_info(user_id, nickname, is_alive) values (ret_id, nick, true) returning id into ag_id;
 
-    return query (select u.id, u.username, nick from "user" u where u.id = ret_id);
+    return query select u.id, u.username, ag_id, nick from "user" u where u.id = ret_id;
 end;
-$$ language plpgsql;
+$$;
 
 
 -- Функция для получения всех профессий, подходящих по навыкам, отсортированные по кол-ву нужных навыков
@@ -96,11 +164,6 @@ begin
     return profession_ids;
 end;
 $$ language plpgsql;
-
-select r.name from "user" u
-    join user_roles ur on u.id = ur.user_id
-    join role r on ur.role_id = r.id where u.id = 1002;
-
 
 
 -- функция для того, чтобы узнать базовую информацию о пришельцах, за которыми следит агент с заданным id
@@ -125,6 +188,7 @@ begin
                 where ag.id=agent_id and s.name = 'ON EARTH';
 end;
 $$ language plpgsql;
+
 
 -- функция для того, чтобы узнать детальную информацию о конкретном пришельце с заданным id,
 -- за которым следит агент
@@ -162,7 +226,6 @@ begin
 
 end;
 $$ language plpgsql;
-
 
 
 -- Функция получения всех заявок типа req_type, которые надо обработать

@@ -15,11 +15,11 @@ select u.username, u.user_photo,
        s.name,
        p.first_name, p.second_name, p.age, p.person_photo,
        l.city, l.country,
-       prof.name
+       prof.name as profession_name
 from alien_info al
 join alien_personality p on p.id = al.personality_id
 join location l on l.id = p.location_id
-join "user" u on al.id = u.id
+join "user" u on al.user_id = u.id
 join alien_status s on al.alien_status_id = s.id
 join profession prof on prof.id = p.profession_id
 where al.id = ? and s.name = 'ON EARTH';
@@ -32,7 +32,7 @@ join request_type t on r.type_id = t.id
 join request_status s on s.id = r.status_id
 where s.name = 'PENDING' and t.name = 'VISIT';
 
--- 5 ищем информацию о заявке на визит по её айди, включая анкету пришельца 
+-- 5 ищем информацию о заявке на визит по её айди, включая анкету пришельца
 select r.id, r.creator_id, r.create_date,
        t.name, s.name,
        f.planet_id, f.visit_purpose, f.stay_time, f.comment,

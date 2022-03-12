@@ -5,7 +5,7 @@
    [mibui.db :as db :refer [default-db set-user-ls remove-user-ls]]
    [ajax.core :refer [json-request-format json-response-format]]
    [day8.re-frame.http-fx]
-   ; [day8.re-frame.tracing :refer-macros [fn-traced]]
+   [day8.re-frame.tracing :refer-macros [fn-traced]]
    [clojure.string :as str]
    [cljs.reader :as rdr]
    [mibui.routes :as routes]
@@ -69,7 +69,6 @@
 
  ;; the event handler (function) being registered
  (fn [{:keys [local-store-user]} _]
-   (println "initialize db")
    ;; take 2 vals from coeffects. Ignore event vector itself.
    {:db (assoc default-db :user local-store-user)}))     ;; what it returns becomes the new application state
 
@@ -82,7 +81,6 @@
 (reg-event-fx                                            ;; usage: (dispatch [:set-active-page {:page :home})
  :set-active-page                                        ;; triggered when the user clicks on a link that redirects to another page
  (fn [{:keys [db]} [_ {:keys [page]}]] ;; destructure 2nd parameter to obtain keys
-   (println "setting active page " page)
    (let [set-page (assoc db :active-page page)]
      (case page
        ;; -- URL @ "/" --------------------------------------------------------
@@ -95,8 +93,11 @@
                                                    ;;      :register {:db set-page}
                                                    ;;      :settings {:db set-page}
                                                    ;;      ```
-       :aliens {:db set-page}))))
-       ; {:db set-page}))))
+       :my-aliens {:db set-page
+                   :dispatch [:my-aliens]}
+       :alien-view {:db set-page}))))
+                    ; :dispatch [:alien-view (:)]}))))
+; {:db set-page}))))
 
 
 ;; -- POST Login @ /api/users/login -------------------------------------------
@@ -146,20 +147,11 @@
                  :response-format (json-response-format {:keywords? true}) ;; json response and all keys to keywords
                  :on-success      [:register-user-success] ;; trigger :register-user-success event
                  :on-failure      [:api-request-error {:request-type :register-user}]}})) ;; trigger :api-request-error event
+
 (reg-event-fx
  :register-user-success
- ;; The standard set of interceptors, defined above, which we
- ;; use for all user-modifying event handlers. Looks after
- ;; writing user to LocalStore.
- ;; NOTE: this chain includes `path` and `trim-v`
  set-user-interceptor
 
- ;; The event handler function.
- ;; The "path" interceptor in `set-user-interceptor` means 1st parameter is the
- ;; value at `:user` path within `db`, rather than the full `db`.
- ;; And, further, it means the event handler returns just the value to be
- ;; put into `:user` path, and not the entire `db`.
- ;; So, a path interceptor makes the event handler act more like clojure's `update-in`
  (fn [user event]
    {:db (first (first event))
     ; (set/rename-keys (first (first event)) {:register_user :id})
@@ -167,9 +159,6 @@
 
 (reg-event-fx                                            ;; usage (dispatch [:logout])
  :logout
- ;; This interceptor, defined above, makes sure
- ;; that we clean up localStorage after logging-out
- ;; the user.
  remove-user-interceptor
  ;; The event handler function removes the user from
  ;; app-state = :db and sets the url to "/".
@@ -183,7 +172,7 @@
 ;; сделать запрос на получение пришельцев для агента используя {:user {:agent_info_id}}
 (reg-event-fx
  :my-aliens
- (fn [{:keys [db]} _]
+ (fn-traced [{:keys [db]} _]
    {:db         db
     :http-xhrio {:method          :get
                  :uri             (endpoint "my-aliens")
@@ -191,12 +180,32 @@
                  :format          (json-request-format)
                  :response-format (json-response-format {:keywords? true})
                  :on-success      [:my-aliens-success]
-                 :on-failure      [:api-request-error {:request-type :register-user}]}}))
+                 :on-failure      [:api-request-error {:request-type :my-aliens}]}}))
 
 (reg-event-fx
  :my-aliens-success
- (fn [db event]
-   {:db (db assoc :my-aliens event)}))
+ (fn [{:keys [db]} [_ aliens]]
+   {:db (assoc db :my-aliens aliens)}))
+
+
+
+;; -- GET alien @ /api/my-aliens/id ------------------------------------------
+(reg-event-fx
+ :alien-view
+ (fn-traced [{:keys [db]} [_ alien-id]]
+   {:db         db
+    :http-xhrio {:method          :get
+                 :uri             (endpoint "my-aliens" alien-id)
+                 :format          (json-request-format)
+                 :response-format (json-response-format {:keywords? true})
+                 :on-success      [:view-alien-success]
+                 :on-failure      [:api-request-error {:request-type :view-alien}]}}))
+
+(reg-event-fx
+ :view-alien-success
+ (fn [{:keys [db]} [_ alien]]
+   {:db (assoc db :alien-view alien)
+    :dispatch [:set-active-page {:page :alien-view}]}))
 
 ;; -- Request Handlers -----------------------------------------------------------
 ;;

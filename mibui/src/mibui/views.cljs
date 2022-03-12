@@ -98,6 +98,80 @@
 ; (when (:register-user errors) [errors-list (:register-user errors)])
 
 
+
+(defn aliens []
+  (let [my-aliens @(subscribe [:my-aliens])]
+    [:div.align-items-center.justify-content-center.row
+     [:h1 "My aliens"]
+     (for [alien (first my-aliens)]
+      [:div.col.m-3 {:key (:alien_info_id alien)}
+       [:div.card {:style {:width "18rem"}}
+        (if (:user_photo alien)
+          (:user_photo alien)
+          [:img.card-img-top {:src "/user.jpg"}])
+        [:div.card-body
+         [:h5.card-title (:username alien)]
+         [:h6.card-subtitle.mb-2.text-muted "id " (:alien_info_id alien)]
+         [:h6.card-subtitle.mb-2.text-muted  (:status alien)]
+         [:h6.card-subtitle.mb-2.text-muted  "Departure date " (:departure_date alien)]
+         [:p.card-text "text"]
+
+         [:button.btn.card-link.btn-primary {
+                                             :on-click #(.preventDefault %
+                                                                         (dispatch [:alien-view (:alien_info_id alien)]))}
+                        ; :href (url-for :alien-view :id (:alien_info_id alien))}
+          "Rate behavior"]]]])]))
+
+
+(defn alien []
+ (let [al @(subscribe [:alien-view])]
+   [:div.container
+    [:div
+     [:h2 "Alien " (:username al) "(" (:alien_info_id al) ")"]
+     [:img.rounded.float-start {:src "/user.jpg"}]
+     [:h5 "Personality"]
+     [:p "First name: " (:first_name al)
+      [:br] "Second name: " (:second_name al)
+      [:br] "Age: " (:age al)
+      [:br] "Status: " (:status al)
+      [:br] "Country: " (:country al)
+      [:br] "City: " (:city al)
+      [:br] "Profession: " (:profession_name al)]]
+    [:div.align-items-center
+     [:br] [:br] [:br]
+     [:h2.text-center "Daily Report"]
+     [:div.row
+      [:div.mb-3.col
+       [:label.form-label {:for "exampleFormControlTextarea1"} "Comment"]
+       [:textarea.form-control { :id "exampleFormControlTextarea1", :rows "3"}]]
+      [:div.align-items-center.col.text-center
+       [:div.card.align-items-center
+        [:div.card-body.text-center
+         ; [:span.myratings.4.5]
+         [:h4.mt-1 "Behavior rate"]
+         [:fieldset.rating
+          [:input {:type "radio", :id "star5", :name "rating", :value "10"}]
+          [:label.full {:for "star5", :title "Awesome - 10/10"}]
+          [:input {:type "radio", :id "star4half", :name "rating", :value "9"}]
+          [:label.half { :for "star4half", :title "Pretty good - 9/10"}]
+          [:input {:type "radio", :id "star4", :name "rating", :value "8"}]
+          [:label.full { :for "star4", :title "Pretty good - 8/10"}]
+          [:input {:type "radio", :id "star3half", :name "rating", :value "7"}]
+          [:label.half { :for "star3half", :title "Meh - 7/10"}]
+          [:input {:type "radio", :id "star3", :name "rating", :value "6"}]
+          [:label.full {:for "star3", :title "Meh - 6/10"}]
+          [:input {:type "radio", :id "star2half", :name "rating", :value "5"}]
+          [:label.half {:for "star2half", :title "Kinda bad - 5/10"}]
+          [:input {:type "radio", :id "star2", :name "rating", :value "4"}]
+          [:label.full {:for "star2", :title "Kinda bad - 4/10"}]
+          [:input {:type "radio", :id "star1half", :name "rating", :value "3"}]
+          [:label.half {:for "star1half", :title "Meh - 3/10"}]
+          [:input {:type "radio", :id "star1", :name "rating", :value "2"}]
+          [:label.full {:for "star1", :title "Sucks big time - 2/10"}]
+          [:input {:type "radio", :id "starhalf", :name "rating", :value "1"}]
+          [:label.half {:for "starhalf", :title "Sucks big time - 1/10"}]
+          [:input.reset-option {:type "radio", :name "rating", :value "reset"}]" "]]]]]
+     [:button.btn.btn-primary.w-25 "OK"]]]))
 (defn header []
   (let [user @(subscribe [:user])
         active-page @(subscribe [:active-page])]
@@ -115,26 +189,21 @@
               [:a.nav-link {:href (url-for :register)}  "Sign up"]]]]
            ;; if not empty user
            [:div.collapse.navbar-collapse
-            [:ul.navbar-nav.mr-auto
+            [:ul.navbar-nav.me-auto
              [:li.nav-item.active
               [:a.nav-link {:href (url-for :home) } "Home"]]
              [:li.nav-item.active
-              [:a.nav-link {:href (url-for :aliens)}  "My aliens"]]
+              [:a.nav-link {:href (url-for :my-aliens)}  "My aliens"]]]
+
+            [:ul.navbar-nav
+             [:li.nav-item.navbar-text (str (if (:agent_info_id user)
+                                              "AGENT "
+                                              "ALIEN ")
+                                         (:username user))]
              [:li.nav-item.active
               [:a.nav-link  {:on-click
                              #(.preventDefault %
                                (dispatch [:logout]))} "Log out"]]]])]]))
-
-
-(defn aliens []
-  (let [my-aliens (dispatch [:my-aliens])]
-    [:div "My aliens"
-     (map (fn [alien]
-            [:div (:alien_info_id alien)]) my-aliens)]))
-     ;
-
-(defn another []
-  [:div "again"])
 
 (defn pages
   [page-name]
@@ -142,8 +211,8 @@
     :home [home]
     :login [login]
     :register [register]
-    :aliens [aliens]
-    ; :another [another]
+    :my-aliens [aliens]
+    :alien-view [alien]
     [home]))
 
 
@@ -152,7 +221,6 @@
 
 (defn main-panel []
   (let [active-page @(subscribe [:active-page])]
-    (println "main panel")
     [:div
      [header]
      [pages active-page]]))
