@@ -108,28 +108,20 @@
     {:status 200
      :body (assoc alien-form :skills skills)}))
 
-(alien-form "1109")
-; надо отправлять анкету на посещение земли
-; сделать форму на фронте
-  ; Выбирает, с какой он планеты
-  ; Описывает, зачем он прилетает на Землю
-  ; Выбирает срок пребывания на Земле
-  ; Выбирает навыки, которыми владеет
-  ; Прикрепляет свою фотографию
-  ; Пишет комментарий к анкете
 
-; отправлять запрос на /visit
-(defn visit [request]
-  ;; тут надо создать заявку на визит select from create_visit_request
-  {:status 201
-   :body ""})
 
 
 ;; далее.
 ;; requests - отображаются заявки на посещение земли, которые PENDING
 ;; должны быть кнопки принять и отклонить
 ;; если принимаем, тогда надо создавать личность пришельцу
+(defn get-requests [request]
+  (let [_ (println request)
+        ans (db/get-pending-requests)]
+    {:status 200
+     :body ans}))
 
+; (first (db/get-pending-requests))
 ; /request/id - endpoint для рассмотрения определенной заявки
   ; Сотрудник вводит имя, фамилию, возраст для личности
   ; Сотрудник на основании навыков в анкете пришельца выбирает для него профессию
@@ -150,18 +142,19 @@
 (defn save-alien-form [req]
   (let [body (:body req)
         alien-form (select-keys body [:userid :planet_name :visit_purp :staytime :comm])
-        skills (str/split (:skills body) #",")]
-    (let [ids (db/create-visit-request alien-form)]
+        skills (str/split (:skills body) #",")
+        ids (db/create-visit-request alien-form)]
       (db/form-add-skills (:alien_form_id ids) skills)
       (if ids
         {:status 200
          :body ids}
-        {:status 400}))))
+        {:status 400})))
 
-(defn my-requests [request])
+
 
 (compojure/defroutes routes
   (compojure/context "/api" []
+    (compojure/GET "/requests" request (get-requests request))
     (compojure/context "/users" []
       (compojure/POST "/login" request (login request))
       (compojure/POST "/register" request (register request)))
@@ -169,11 +162,9 @@
     (compojure/context "/my-aliens/:id" [id]
       (compojure/POST "/report" request (report request))
       (compojure/GET "/" [id] (view-alien id)))
-    (compojure/GET "/requests" request (my-requests request))
     (compojure/context "/alien-form" []
       (compojure/POST "/" request (save-alien-form request))
       (compojure/GET "/:id" [id] (alien-form id))))
-    ; (compojure/POST "/visit" request (visit request)))
   (cjr/not-found "<h1>Page not found!!!</h1>"))
 
 

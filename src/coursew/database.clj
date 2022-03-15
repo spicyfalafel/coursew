@@ -130,7 +130,7 @@
       (alien-info user-id))))
 
 (defn pending-alien-form [user_id]
-  (first (jdbc/query pg-db ["select f.id as userid, p.name as planet_name, f.visit_purpose as visit_purp,
+  (first (jdbc/query pg-db ["select f.id as alien_form_id, f.user_id, p.name as planet_name, f.visit_purpose as visit_purp,
                       f.stay_time as staytime, f.comment as comm from alien_form f
                       join request r on f.id = r.alien_form_id
                       join request_status s on s.id = r.status_id
@@ -146,6 +146,7 @@
 (defn form-add-skills [form-id skills]
   (let [skills-arg (str "'{" (str/join "," skills)  "}'")]
     (jdbc/query pg-db [(str "select from insert_skill_in_alien_form(?, " skills-arg  ")") (int form-id)])))
+
 
 ;;----------------agent---------------------------------------------------------
 
@@ -195,6 +196,24 @@
                            from agent_alien aa
                            where alien_info_id = ? and agent_info_id = ?" alien-id agent-id]))))
 
+
+(defn get-pending-requests []
+  (into #{} (jdbc/query pg-db [
+                               "select r.id as request_id, r.creator_id, date(r.create_date),
+                               s.name as status, t.name as type
+                               from request r
+                               join request_type t on r.type_id = t.id
+                               join request_status s on s.id = r.status_id
+                               where s.name = 'PENDING' and t.name = 'VISIT'"])))
+
+
+(defn skills-alien-form [form-id]
+  (map (comp :name) (jdbc/query pg-db ["select name from alien_form f
+                     join skill_in_alien_form siaf on f.id = siaf.alien_form_id
+                     join skill s on siaf.skill_id = s.id
+                     where f.id = ?" form-id])))
+
+; (skills-alien-form 1022)
 
 (comment
   (user-by-cred "123" "123")

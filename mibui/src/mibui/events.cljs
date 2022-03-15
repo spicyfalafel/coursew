@@ -93,8 +93,28 @@
                     ; :dispatch [:alien-view (:)]}))))
        :alien-form {:db set-page
                     :dispatch [:form-from-db (:user_id (:user db))]}
+       :requests {:db set-page
+                  :dispatch [:requests]}
        {:db set-page}))))
 
+;; -- POST requests @ /api/requests -------------------------------------------
+;;
+(reg-event-fx                                        ;; usage (dispatch [:login user])
+ :requests                                              ;; triggered when a users submits login form
+ (fn [{:keys [db]} [_]]                  ;; credentials = {:login ... :password ...}
+   {:db         db
+    :http-xhrio {:method          :get
+                 :uri             (endpoint "requests") ;; evaluates to "api/users/login"
+                 ; :params          {:user credentials}    ;; {:user {:email ... :password ...}}
+                 :format          (json-request-format)  ;; make sure it's json
+                 :response-format (json-response-format {:keywords? true}) ;; json response and all keys to keywords
+                 :on-success      [:requests-success]       ;; trigger :login-success event
+                 :on-failure      [:api-request-error {:request-type :requests}]}})) ;; trigger :api-request-error event
+
+(reg-event-fx
+ :requests-success
+ (fn [{:keys [db]} event]
+   {:db        (db assoc :requests event)}))
 
 ;; -- POST Login @ /api/users/login -------------------------------------------
 ;;

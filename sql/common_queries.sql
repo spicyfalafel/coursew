@@ -25,8 +25,8 @@ join profession prof on prof.id = p.profession_id
 where al.id = ? and s.name = 'ON EARTH';
 
 -- 4 ищем заявки на визит планеты, которые надо обработать
-select r.id, r.creator_id, r.create_date,
-       s.name, t.name
+select r.id as request_id, r.creator_id, r.create_date,
+       s.name as status, t.name as type
 from request r
 join request_type t on r.type_id = t.id
 join request_status s on s.id = r.status_id

@@ -33,3 +33,8 @@
  :alien-form
  (fn [db _]
    (:alien-form db)))
+
+(reg-sub
+ :requests
+ (fn [db _]
+     (:requests db)))
