@@ -199,7 +199,8 @@
 
 (defn header []
   (let [user @(subscribe [:user])
-        active-page @(subscribe [:active-page])]
+        active-page @(subscribe [:active-page])
+        is-agent (:agent_info_id user)]
       [:div
        [:nav.navbar.navbar-light.navbar-expand-lg.bg-light
          [:a.navbar-brand {:href (url-for :home)} "Men In Black"]
@@ -217,11 +218,15 @@
             [:ul.navbar-nav.me-auto
              [:li.nav-item.active
               [:a.nav-link {:href (url-for :home) } "Home"]]
-             [:li.nav-item.active
-              [:a.nav-link {:href (url-for :my-aliens)}  "My aliens"]]]
+             (when is-agent [:li.nav-item.active
+                             [:a.nav-link {:href (url-for :my-aliens)} "My aliens"]])
+             (when is-agent [:li.nav-item.active
+                             [:a.nav-link {:href (url-for :requests)}  "Requests"]])
 
+             (when (not is-agent) [:li.nav-item.active
+                                   [:a.nav-link {:href (url-for :alien-form)} "Alien form"]])]
             [:ul.navbar-nav
-             [:li.nav-item.navbar-text (str (if (:agent_info_id user)
+             [:li.nav-item.navbar-text (str (if is-agent
                                               "AGENT "
                                               "ALIEN ")
                                          (:username user))]
@@ -230,14 +235,24 @@
                              #(.preventDefault %
                                (dispatch [:logout]))} "Log out"]]]])]]))
 
+(defn requests-view [] [:h1 "req-view"])
+
+(defn alien-form []
+  [:h1 "alien form"])
+
 (defn pages
   [page-name]
   (case page-name
+    ;; all
     :home [home]
     :login [login]
     :register [register]
+    ;; agent
     :my-aliens [aliens]
     :alien-view [alien]
+    :requests [requests-view]
+    ;; alien
+    :alien-form [alien-form]
     [home]))
 
 

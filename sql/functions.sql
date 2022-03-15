@@ -39,8 +39,6 @@ $$ language plpgsql;
 
 
 -- функция для регистрации пользователя (с выбором роли)
--- вообще регистрация агента - другая функция. для пришельца этой достаточно
--- т.к. потом все равно отправлять анкету
 create or replace function register_user(uname text, password text, alien bool default false)
     returns table (user_id int,
                    username varchar(64),
@@ -122,7 +120,6 @@ end;
 $$ language plpgsql;
 
 
-drop function register_agent(uname text, password text);
 -- функция для регистрации агента
 create or replace function register_agent(uname text, password text)
     returns TABLE(user_id integer, username character varying, agent_info_id int, nickname character varying)
@@ -143,6 +140,26 @@ begin
 end;
 $$;
 
+
+-- функция для регистрации пришельца (до составления анкеты)
+create or replace function register_alien(uname text, password text)
+    returns TABLE(user_id integer, username character varying, alien_info_id int)
+    language plpgsql
+as
+$$
+declare
+    ret_id int;
+    al_id int;
+    status_not_on_earth int := (select id from alien_status where name = 'NOT ON EARTH');
+begin
+    insert into "user" (username, passw_hash) values (uname, password) returning id into ret_id;
+    insert into user_roles(user_id, role_id) values (ret_id, (select id from role where name = 'ALIEN'));
+    insert into alien_info(departure_date, alien_status_id, user_id, personality_id)
+    values (null, status_not_on_earth, ret_id, null) returning id into al_id;
+
+    return query select u.id, u.username, al_id from "user" u where u.id = ret_id;
+end;
+$$;
 
 -- Функция для получения всех профессий, подходящих по навыкам, отсортированные по кол-ву нужных навыков
 create or replace function get_professions_by_skills(skills integer[])

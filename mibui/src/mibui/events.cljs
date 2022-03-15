@@ -87,17 +87,11 @@
        :home {:db         set-page}
        ;; -- URL @ "/login" | "/register" | "/settings" -----------------------
        (:login :register :settings) {:db set-page} ;; `case` can group multiple clauses that do the same thing.
-                                                   ;; ie., `(:login :register :settings) {:db set-page}` is the same as
-                                                   ;;      ```
-                                                   ;;      :login {:db set-page}
-                                                   ;;      :register {:db set-page}
-                                                   ;;      :settings {:db set-page}
-                                                   ;;      ```
        :my-aliens {:db set-page
                    :dispatch [:my-aliens]}
-       :alien-view {:db set-page}))))
+       :alien-view {:db set-page}
                     ; :dispatch [:alien-view (:)]}))))
-; {:db set-page}))))
+       {:db set-page}))))
 
 
 ;; -- POST Login @ /api/users/login -------------------------------------------

@@ -1,10 +1,10 @@
 
 (ns coursew.database
-  (:refer-clojure :exclude [group-by update partition-by filter for])
+  (:refer-clojure :exclude [set into group-by update partition-by filter for])
   (:require
    [honey.sql :as sql]
    [clojure.java.jdbc :as jdbc]
-   [honey.sql.helpers :as h]
+   [honey.sql.helpers :refer :all :as h]
    [clojure.edn :as edn]
    [clojure.java.io :as io])
   (:import [java.sql Timestamp]
@@ -87,22 +87,48 @@
                   Instant/from)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;----------------user----------------------------------------------------------
+(defn register-alien [username password]
+  (jdbc/query pg-db ["select * from register_user(?, ?, true)" username password]))
 
-(defn user-by-cred [username passw]
-  (first
-    (jdbc/query pg-db ["select id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))
+
+(defn register-agent [username password]
+  (jdbc/query pg-db ["select * from register_agent(?, ?)" username password]))
+
 
 (defn get-roles [user-id]
   (jdbc/query pg-db ["select r.name from \"user\" u
                       join user_roles ur on u.id = ur.user_id
                       join role r on ur.role_id = r.id where u.id = ?" user-id]))
 
+(defn agent-info [user-id]
+  (jdbc/query pg-db ["select id as agent_info_id, nickname from agent_info where user_id = ?" user-id]))
 
-;;----------------alien---------------------------------------------------------
 
-(defn register-alien [username password]
-  (jdbc/query pg-db ["select * from register_alien(?, ?)" username password]))
+(defn alien-info [user-id]
+  (jdbc/query pg-db ["select ai.id as alien_info_id, ai.departure_date, s.name as status from alien_info ai
+                     join alien_status s on s.id = ai.alien_status_id where ai.user_id = ?" user-id]))
+
+(defn get-if-agent [user-id]
+  (when-let [names (map #(:name %) (get-roles user-id))]
+    (when (some #{"AGENT"} names)
+      (agent-info user-id))))
+
+
+(defn get-if-alien [user-id]
+  (let [roles (get-roles user-id)]
+    (when (some #{"ALIEN"} (map #(:name %) roles))
+      (alien-info user-id))))
+
+
+(defn aliens-by-agent-id [agent-id]
+  (list (jdbc/query pg-db ["select al.id as alien_info_id, u.username, u.user_photo, s.name as status,
+                           al.personality_id, al.departure_date
+                           from agent_info ag
+                           join agent_alien aa on ag.id = aa.agent_info_id
+                           join alien_info al on aa.alien_info_id = al.id
+                           join alien_status s on al.alien_status_id = s.id
+                           join \"user\" u on u.id = al.user_id
+                           where ag.id=? and s.name = 'ON EARTH'" agent-id])))
 
 (defn alien-by-id [alien-info-id]
   (first (jdbc/query pg-db ["select u.username, u.user_photo,
@@ -119,69 +145,23 @@
                            join profession prof on prof.id = p.profession_id
                            where al.id = ? and s.name = 'ON EARTH'" alien-info-id])))
 
-(defn alien-info [user-id]
-  (jdbc/query pg-db ["select ai.id as alien_info_id, ai.departure_date, s.name as status from alien_info ai
-                     join alien_status s on s.id = ai.alien_status_id where ai.user_id = ?" user-id]))
-
-(defn get-if-alien [user-id]
-  (let [roles (get-roles user-id)]
-    (when (some #{"ALIEN"} (map #(:name %) roles))
-      (alien-info user-id))))
-
-(defn pending-alien-form [user_id]
-  (jdbc/query pg-db ["select f.id from alien_form f
-                      join request r on f.id = r.alien_form_id
-                      join request_status s on s.id = r.status_id
-                      where s.name = 'PEMDING' and f.user_id = ?" user_id]))
-
-
-;;----------------agent---------------------------------------------------------
-
-(defn register-agent [username password]
-  (jdbc/query pg-db ["select * from register_agent(?, ?)" username password]))
-
-
-(defn reports-today [agent-id]
-  (into #{} (map #(:alien_info_id %) (jdbc/query pg-db ["select alien_info_id from agent_alien aa
-                      join tracking_report t on aa.id = t.agent_alien_id
-                      where agent_info_id = ? and t.report_date = '2022-03-15'" agent-id]))))
-
-
-
-(defn ins-report! [report-date behavior description agent-alien-id]
-  (jdbc/insert! pg-db :tracking_report {:report_date (parse-date report-date)
-                                        :behavior behavior
-                                        :description description
-                                        :agent_alien_id agent-alien-id}))
-
-(defn agent-info [user-id]
-  (jdbc/query pg-db ["select id as agent_info_id, nickname from agent_info where user_id = ?" user-id]))
-
-
-
-(defn get-if-agent [user-id]
-  (when-let [names (map #(:name %) (get-roles user-id))]
-    (when (some #{"AGENT"} names)
-      (agent-info user-id))))
-
-
-
-(defn aliens-by-agent-id [agent-id]
-  (into #{} (jdbc/query pg-db ["select al.id as alien_info_id, u.username, u.user_photo, s.name as status,
-                           al.personality_id, al.departure_date
-                           from agent_info ag
-                           join agent_alien aa on ag.id = aa.agent_info_id
-                           join alien_info al on aa.alien_info_id = al.id
-                           join alien_status s on al.alien_status_id = s.id
-                           join \"user\" u on u.id = al.user_id
-                           where ag.id=? and s.name = 'ON EARTH'" agent-id])))
-
-
 
 (defn get-agent-alien [agent-id alien-id]
   (:id (first (jdbc/query pg-db ["select id
                            from agent_alien aa
                            where alien_info_id = ? and agent_info_id = ?" alien-id agent-id]))))
+
+
+
+(defn ins-report! [report-date behavior description agent-alien-id]
+  (jdbc/insert! pg-db :tracking_report {:report-date (parse-date report-date)
+                                        :behavior behavior
+                                        :description description
+                                        :agent_alien_id agent-alien-id}))
+
+(defn user-by-cred [username passw]
+  (first
+    (jdbc/query pg-db ["select id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))
 
 
 (comment
@@ -192,12 +172,8 @@
                :description "some text"
                :agent_alien_id 1})
 
-  ; #time/ld "2022-01-01"
-  (jdbc/insert! pg-db :tracking_report {:report_date #time/ld "2022-03-12"
-                                        :behavior 2
-                                        :description "f"
-                                        :agent_alien_id 1})
-  (ins-report! "2022-03-12" 7 "gfd" 1)
+
+  (report "03-24-" 10 "some text" 1)
 
 
   (register-alien "fsdf" "fsdfsd")

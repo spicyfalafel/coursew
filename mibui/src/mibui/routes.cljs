@@ -10,6 +10,8 @@
         "register" :register
         "my-aliens/" { "" :my-aliens
                       [:id ""] :alien-view}
+        "alien-form" :alien-form
+        "requests" :requests
         "another"  :another}])
 
 
