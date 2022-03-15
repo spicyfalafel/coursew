@@ -6,7 +6,8 @@
    [clojure.java.jdbc :as jdbc]
    [honey.sql.helpers :as h]
    [clojure.edn :as edn]
-   [clojure.java.io :as io])
+   [clojure.java.io :as io]
+   [clojure.string :as str])
   (:import [java.sql Timestamp]
            [java.sql Date]
            [java.sql Connection]
@@ -91,7 +92,7 @@
 
 (defn user-by-cred [username passw]
   (first
-    (jdbc/query pg-db ["select id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))
+    (jdbc/query pg-db ["select id as user_id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))
 
 (defn get-roles [user-id]
   (jdbc/query pg-db ["select r.name from \"user\" u
@@ -129,11 +130,22 @@
       (alien-info user-id))))
 
 (defn pending-alien-form [user_id]
-  (jdbc/query pg-db ["select f.id from alien_form f
+  (first (jdbc/query pg-db ["select f.id as userid, p.name as planet_name, f.visit_purpose as visit_purp,
+                      f.stay_time as staytime, f.comment as comm from alien_form f
                       join request r on f.id = r.alien_form_id
                       join request_status s on s.id = r.status_id
-                      where s.name = 'PEMDING' and f.user_id = ?" user_id]))
+                      join planet p on p.id = f.planet_id
+                      where s.name = 'PENDING' and f.user_id = ?" user_id])))
 
+
+(defn create-visit-request [form]
+  (let [{:keys [userid planet_name visit_purp staytime comm]} form]
+    (first (jdbc/query pg-db ["select * from create_visit_request(?, ?, ?, ?, ?)"
+                              userid planet_name visit_purp staytime comm]))))
+
+(defn form-add-skills [form-id skills]
+  (let [skills-arg (str "'{" (str/join "," skills)  "}'")]
+    (jdbc/query pg-db [(str "select from insert_skill_in_alien_form(?, " skills-arg  ")") (int form-id)])))
 
 ;;----------------agent---------------------------------------------------------
 
@@ -144,7 +156,7 @@
 (defn reports-today [agent-id]
   (into #{} (map #(:alien_info_id %) (jdbc/query pg-db ["select alien_info_id from agent_alien aa
                       join tracking_report t on aa.id = t.agent_alien_id
-                      where agent_info_id = ? and t.report_date = '2022-03-15'" agent-id]))))
+                      where agent_info_id = ? and t.report_date = current_date" agent-id]))))
 
 
 

@@ -28,3 +28,8 @@
  :alien-view
  (fn [db _]
    (:alien-view db)))
+
+(reg-sub
+ :alien-form
+ (fn [db _]
+   (:alien-form db)))

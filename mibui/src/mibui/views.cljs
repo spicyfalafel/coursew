@@ -6,7 +6,8 @@
    [mibui.routes :as routes :refer [url-for]]
    [mibui.subs :as subs]
    [cljs-time.core :as time]
-   [cljs-time.format :as time-format]))
+   [cljs-time.format :as time-format]
+   [clojure.string :as str]))
 
 
 (defn radio [label name value]
@@ -16,7 +17,15 @@
     label]])
 
 (defn home []
-  [:div "this is home panel"])
+  (let [user @(subscribe [:user])
+        is-agent (:agent_info_id user)]
+    (dispatch [:set-active-page {:page
+                                 (if (empty? user)
+                                   :login
+                                   (if is-agent
+                                     :my-aliens
+                                     :alien-form))}])))
+
 
 (defn errors-list
   [errors]
@@ -88,10 +97,7 @@
                                             :type "checkbox"
                                             :value alien
                                             :on-change
-                                            (fn [_] (doall (println (not alien))
-                                                           (swap! registration assoc :alien (not alien))))}]
-                                                        ;                                      not
-                                                        ;                                      some?)))}]
+                                            (fn [_] (swap! registration assoc :alien (not alien)))}]
 
               [:label {:class "form-check-label", :for :alien} "I am alien"]]
              [:div.form-outline.mt-3
@@ -152,7 +158,6 @@
         [:form.align-items-center.text-center {:on-submit #(send-report % @report)}
          [:br] [:br] [:br]
          [:h2.text-center "Daily Report " report_date]
-         ; [:form {:on-submit #(send-report % @report)}]
          [:div.row
           [:div.mb-3.col.text-center
            [:label.form-label {:for "descriptionTextarea"} "Description"]
@@ -194,8 +199,8 @@
                        :on-change #(change-rating %)}]
               [:label.half {:for "starhalf", :title "Sucks big time - 1/10"}]
               [:input.reset-option {:type "radio", :name "rating", :value "reset"}]" "]]]]]
-         [:button.btn.btn-primary.w-25 "Save"]
-         [:div behavior " " description]]]))))
+         [:button.btn.btn-primary.w-25 "Save"]]]))))
+
 
 (defn header []
   (let [user @(subscribe [:user])
@@ -235,10 +240,76 @@
                              #(.preventDefault %
                                (dispatch [:logout]))} "Log out"]]]])]]))
 
-(defn requests-view [] [:h1 "req-view"])
+(defn requests-view []
+  (let [requests @(subscribe [:requests])]
+       [:h1 "req-view"]
+       (for [req requests]
+         [:div
+          [:h5 "creator id " (:creator_id req)]
+          [:h5 "type " (:type req)]
+
+          [:h5 "status  " (:status req)]
+          [:h5 "create date " (:create_date req)]
+          [:h5 "alien form id " (:alien_form_id req)]])))
+
 
 (defn alien-form []
-  [:h1 "alien form"])
+  (let [user @(subscribe [:user])
+        default {:userid (:user_id user)
+                 :planet_name ""
+                 :visit_purp ""
+                 :staytime 1
+                 :comm ""
+                 :skills []}
+        form-from-db @(subscribe [:alien-form])
+        al-form (reagent/atom (if (empty? form-from-db)
+                                default
+                                form-from-db))
+        send-form (fn [event form]
+                    (.preventDefault event)
+                    (dispatch [:send-alien-form form]))]
+    (fn []
+      (let [{:keys [planet_name visit_purp staytime comm skills]} @al-form]
+        [:div.row.align-items-center.justify-content-center
+           [:form.col-4.text-center.w-25 {:on-submit #(send-form % @al-form)}
+            (println form-from-db) ;; без этого не работает
+            [:h1 "Alien form"]
+            [:div.form-outline
+             [:input.form-control {:id :planet
+                                   :type        "text"
+                                   :value       planet_name
+                                   :on-change   #(swap! al-form assoc :planet_name (-> % .-target .-value))}]
+             [:label.form-label {:for :planet} "Planet"]]
+            [:div.form-outline
+                [:input.form-control {:id :visit-purpose
+                                      :type        "text"
+                                      :value       visit_purp
+                                      :on-change   #(swap! al-form assoc :visit_purp (-> % .-target .-value))}]
+                [:label.form-label {:for :visit-purpose} "Visit purpose"]]
+            [:div.form-outline
+                [:input.form-control {:id :visit-purpose
+                                      :type        "text"
+                                      :value       staytime
+                                      :on-change   #(swap! al-form assoc :staytime (-> % .-target .-value int))}]
+                [:label.form-label {:for :visit-purpose} "Stay time in days"]]
+            [:div.form-outline
+                [:textarea.form-control {:id :skills
+                                         :type        "text"
+                                         :value skills
+                                         :on-change   #(swap! al-form assoc
+                                                              :skills (-> % .-target .-value))}]
+
+                [:div.form-text "E.g. \"skill1,skill2,skill3...\""]
+                [:label.form-label {:for :visit-purpose} "Skills"]]
+            [:div.form-outline
+                [:input.form-control {:id :comment
+                                      :type        "text"
+                                      :value       comm
+                                      :on-change   #(swap! al-form assoc :comm (-> % .-target .-value))}]
+                [:label.form-label {:for :comment} "Comment"]]
+            (when (empty? form-from-db)
+              [:div.form-outline.mt-3
+               [:button.btn.btn-primary.pull-xs-right "Send request"]])]]))))
 
 (defn pages
   [page-name]

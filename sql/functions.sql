@@ -1,24 +1,26 @@
 
 -- функция создать заявку на VISIT
-create or replace function create_visit_request(userid int, planet_name varchar(64), planet_race varchar(64), visit_purp varchar(64),
+create or replace function create_visit_request(userid int, planet_name varchar(64), visit_purp varchar(64),
                                                 staytime int, comm text)
-    returns void
+    returns table (alien_form_id int, request_id int)
 as
 $$
 declare
-    planet int := (select id from planet where planet.name = planet_name and planet.race = planet_race);
+    planet int := (select id from planet where planet.name = planet_name);
     form_id int;
     type int := (select id from request_type where name = 'VISIT');
     status int := (select id from request_status where name = 'PENDING');
+    request_id int;
 begin
     if planet is null or type is null then
-        raise 'no such planet % %', planet_name, planet_race;
+        raise 'no such planet % ', planet_name;
     end if;
 
     insert into alien_form(user_id, planet_id, visit_purpose, stay_time, comment)
     values (userid, planet, visit_purp, staytime, comm) returning id into form_id;
     insert into request(creator_id, type_id, status_id, alien_form_id)
-    values (userid, type, status, form_id);
+    values (userid, type, status, form_id) returning id into request_id;
+    return query (select form_id, request_id);
 end;
 $$ language plpgsql;
 

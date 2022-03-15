@@ -11,6 +11,7 @@
    [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
    [ring.middleware.session :refer [wrap-session]]
    [ring.middleware.session.cookie]
+   [clojure.string :as str]
    ; [ring.util.response :only [response]]
    ; [buddy.auth.backends.token :refer [token-backend]]
    ; [buddy.auth.middleware :refer [wrap-authentication]]
@@ -44,7 +45,7 @@
     (if (empty? user)
         {:status 404
          :body [(str "no such user " username " " password)]}
-        (let [user-id (:id user)
+        (let [user-id (:user_id user)
               token (auth/generate-signature username password)
               user-token (assoc user :token token)]
           (if-let [agent-info (db/get-if-agent user-id)]
@@ -101,13 +102,13 @@
     {:status 404
      :body (str "errors " (str request))}))
 
+(defn alien-form [user-id]
+  (let [alien-form (db/pending-alien-form (Integer/parseInt user-id))
+        skills (db/skills-alien-form (:alien_form_id alien-form))]
+    {:status 200
+     :body (assoc alien-form :skills skills)}))
 
-
-
-(defn alien-form [id]
-  {:status 200
-   :body (db/pending-alien-form id)})
-
+(alien-form "1109")
 ; надо отправлять анкету на посещение земли
 ; сделать форму на фронте
   ; Выбирает, с какой он планеты
@@ -146,6 +147,16 @@
 
 ; 5, 6 - тупо не успею
 
+(defn save-alien-form [req]
+  (let [body (:body req)
+        alien-form (select-keys body [:userid :planet_name :visit_purp :staytime :comm])
+        skills (str/split (:skills body) #",")]
+    (let [ids (db/create-visit-request alien-form)]
+      (db/form-add-skills (:alien_form_id ids) skills)
+      (if ids
+        {:status 200
+         :body ids}
+        {:status 400}))))
 
 (defn my-requests [request])
 
@@ -159,8 +170,10 @@
       (compojure/POST "/report" request (report request))
       (compojure/GET "/" [id] (view-alien id)))
     (compojure/GET "/requests" request (my-requests request))
-    (compojure/GET "/alien-form/:id" [id] (alien-form id))
-    (compojure/POST "/visit" request (visit request)))
+    (compojure/context "/alien-form" []
+      (compojure/POST "/" request (save-alien-form request))
+      (compojure/GET "/:id" [id] (alien-form id))))
+    ; (compojure/POST "/visit" request (visit request)))
   (cjr/not-found "<h1>Page not found!!!</h1>"))
 
 

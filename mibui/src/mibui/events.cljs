@@ -91,6 +91,8 @@
                    :dispatch [:my-aliens]}
        :alien-view {:db set-page}
                     ; :dispatch [:alien-view (:)]}))))
+       :alien-form {:db set-page
+                    :dispatch [:form-from-db (:user_id (:user db))]}
        {:db set-page}))))
 
 
@@ -122,7 +124,7 @@
 (reg-event-fx                                              ;; usage (dispatch [:register-user registration])
  :register-user                                            ;; triggered when a users submits registration form
  (fn [{:keys [db]} [_ registration]]                       ;; registration = {:username ... :email ... :password ...}
-   {:db         db
+   {;:db         db
     :http-xhrio {:method          :post
                  :uri             (endpoint "users" "register")     ;; evaluates to "api/users/register"
                  :params          {:user registration}   ;; {:user {:username ... :email ... :password ...}}
@@ -136,8 +138,9 @@
  set-user-interceptor
 
  (fn [user event]
+   (println "event " event)
+   (println "ff event" (first (first event)))
    {:db (first (first event))
-    ; (set/rename-keys (first (first event)) {:register_user :id})
     :dispatch [:set-active-page {:page :home}]}))
 
 (reg-event-fx                                            ;; usage (dispatch [:logout])
@@ -145,9 +148,10 @@
  remove-user-interceptor
  ;; The event handler function removes the user from
  ;; app-state = :db and sets the url to "/".
- (fn [{:keys [db]} _]
-   {:db       (dissoc db :user)                          ;; remove user from db
-    :dispatch [:set-active-page {:page :home}]}))
+  (fn [{:keys [db]} _]
+    ; (println "logout " db)
+    {:db       {};{:active-page :login}                          ;; remove user from db
+     :dispatch [:set-active-page {:page :home}]}))
 
 
 
@@ -212,6 +216,44 @@
  (fn-traced [{:keys [db]} [_ answer]]
    {:db (assoc db :alien-view-success answer)
     :dispatch [:set-active-page {:page :my-aliens}]}))
+
+
+;; -- POST alien-form @ /api/alien-form ------------------------------------------
+
+(reg-event-fx
+ :send-alien-form
+ (fn-traced [{:keys [db]} [_ alien-form]]
+   {:db         db
+    :http-xhrio {:method          :post
+                 :uri             (endpoint "alien-form")
+                 :params          alien-form
+                 :format          (json-request-format)
+                 :response-format (json-response-format {:keywords? true})
+                 :on-success      [:send-alien-form-success]
+                 :on-failure      [:api-request-error {:request-type :alien-form}]}}))
+
+
+(reg-event-fx
+ :send-alien-form-success
+ (fn-traced [{:keys [db]} [_ answer]]
+   {:db (assoc db :alien-form answer)}))
+
+(reg-event-fx
+ :form-from-db
+ (fn-traced [{:keys [db]} [_ user-id]]
+   (println user-id)
+   {:db         db
+    :http-xhrio {:method          :get
+                 :uri             (endpoint "alien-form" user-id)
+                 :format          (json-request-format)
+                 :response-format (json-response-format {:keywords? true})
+                 :on-success      [:form-from-db-success]
+                 :on-failure      [:api-request-error {:request-type :alien-form}]}}))
+
+(reg-event-fx
+ :form-from-db-success
+ (fn-traced [{:keys [db]} [_ answer]]
+   {:db (assoc db :alien-form answer)}))
 
 ;; -- Request Handlers -----------------------------------------------------------
 ;;
