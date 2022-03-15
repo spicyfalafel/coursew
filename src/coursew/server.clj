@@ -65,11 +65,20 @@
 
 
 
-
+;; взять инфу про всех пришельцев, включая то, были для них сегодня репорты или нет
 (defn my-aliens [request]
-  (let [agent-id (-> request :params (get "agent_info_id") Integer/parseInt)]
+  (let [agent-id (-> request :params (get "agent_info_id") Integer/parseInt)
+        reported-ids (db/reports-today agent-id)
+        aliens (db/aliens-by-agent-id agent-id)
+        set-reported (fn [alien]
+                       (let [id (:alien_info_id alien)]
+                         (if (contains? reported-ids id)
+                          (assoc alien :reported true)
+                          (assoc alien :reported false))))
+
+        aliens-rep (map set-reported aliens)]
     {:status 200
-     :body (db/aliens-by-agent-id agent-id)}))
+     :body aliens-rep}))
 
 (defn view-alien [id]
   (if-let [alien-info (db/alien-by-id (Integer/parseInt id))]
@@ -78,12 +87,12 @@
     {:status 404
      :body (str "no such alien with id " id)}))
 
-(defn report [{:keys [params body] :as request}]
-
-  (if-let* [alien-id (:id params)
-            agent-id (:agent_info_id body)
+(defn report
+  [{:keys [params body] :as request}]
+  (if-let* [alien-id (-> params :id Integer/parseInt)
+            agent-id (-> body :agent_info_id)
             agent-alien-id (db/get-agent-alien agent-id alien-id)
-            report-added (db/report (:report_date body)
+            report-added (db/ins-report! (:report_date body)
                                     (Integer/parseInt (:behavior body))
                                     (:description body)
                                     agent-alien-id)]
@@ -98,13 +107,13 @@
 
 (compojure/defroutes routes
   (compojure/context "/api" []
-    (compojure/POST "/users/login" request (login request))
-    (compojure/POST "/users/register" request (register request))
-    (compojure/context "/my-aliens" []
-      (compojure/GET "/" request (my-aliens request))
-      (compojure/context "/:id" [id]
-        (compojure/GET "/" request (view-alien request))
-        (compojure/POST "/report" request (report request))))
+    (compojure/context "/users" []
+      (compojure/POST "/login" request (login request))
+      (compojure/POST "/register" request (register request)))
+    (compojure/GET "/my-aliens" request (my-aliens request))
+    (compojure/context "/my-aliens/:id" [id]
+      (compojure/POST "/report" request (report request))
+      (compojure/GET "/" [id] (view-alien id)))
     (compojure/GET "/api/my-requests" request (my-requests request)))
   (cjr/not-found "<h1>Page not found!!!</h1>"))
 

@@ -1,10 +1,10 @@
 
 (ns coursew.database
-  (:refer-clojure :exclude [set into group-by update partition-by filter for])
+  (:refer-clojure :exclude [group-by update partition-by filter for])
   (:require
    [honey.sql :as sql]
    [clojure.java.jdbc :as jdbc]
-   [honey.sql.helpers :refer :all :as h]
+   [honey.sql.helpers :as h]
    [clojure.edn :as edn]
    [clojure.java.io :as io])
   (:import [java.sql Timestamp]
@@ -121,7 +121,7 @@
 
 
 (defn aliens-by-agent-id [agent-id]
-  (list (jdbc/query pg-db ["select al.id as alien_info_id, u.username, u.user_photo, s.name as status,
+  (into #{} (jdbc/query pg-db ["select al.id as alien_info_id, u.username, u.user_photo, s.name as status,
                            al.personality_id, al.departure_date
                            from agent_info ag
                            join agent_alien aa on ag.id = aa.agent_info_id
@@ -145,15 +145,23 @@
                            join profession prof on prof.id = p.profession_id
                            where al.id = ? and s.name = 'ON EARTH'" alien-info-id])))
 
+
 (defn get-agent-alien [agent-id alien-id]
-  (first (jdbc/query pg-db ["select id
+  (:id (first (jdbc/query pg-db ["select id
                            from agent_alien aa
-                           where alien_info_id = ? and agent_info_id = ?" alien-id agent-id])))
+                           where alien_info_id = ? and agent_info_id = ?" alien-id agent-id]))))
+
+(defn reports-today [agent-id]
+  (into #{} (map #(:alien_info_id %) (jdbc/query pg-db ["select alien_info_id from agent_alien aa
+                      join tracking_report t on aa.id = t.agent_alien_id
+                      where agent_info_id = ? and t.report_date = '2022-03-15'" agent-id]))))
 
 
 
-(defn report [report-date behavior description agent-alien-id]
-  (jdbc/insert! pg-db :tracking_report {:report-date report-date
+(reports-today 1)
+
+(defn ins-report! [report-date behavior description agent-alien-id]
+  (jdbc/insert! pg-db :tracking_report {:report_date (parse-date report-date)
                                         :behavior behavior
                                         :description description
                                         :agent_alien_id agent-alien-id}))
@@ -166,6 +174,18 @@
 (comment
   (user-by-cred "123" "123")
   (user-by-cred "1" "1")
+  (def report {:report-date "2022-03-12"
+               :behavior 10
+               :description "some text"
+               :agent_alien_id 1})
+
+  ; #time/ld "2022-01-01"
+  (jdbc/insert! pg-db :tracking_report {:report_date #time/ld "2022-03-12"
+                                        :behavior 2
+                                        :description "f"
+                                        :agent_alien_id 1})
+  (ins-report! "2022-03-12" 7 "gfd" 1)
+
 
   (register-alien "fsdf" "fsdfsd")
   (first (register-agent "12345fsdfsd6" "123456"))

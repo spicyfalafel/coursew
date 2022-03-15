@@ -24,6 +24,7 @@
    (for [[k [v]] errors]
      ^{:key k} [:li (str (name k) " " v)])])
 
+
 ; login
 (defn login []
   (let [default {:login "" :password ""}
@@ -51,6 +52,7 @@
                                                    (-> % .-target .-value))}]
           [:label.form-label {:for :passw} "Password"]]
          [:button.btn.btn-primary.btn-block {:type :submit} "OK"]]]))))
+
 
 (defn register
   []
@@ -105,7 +107,7 @@
   (let [my-aliens @(subscribe [:my-aliens])]
     [:div.align-items-center.justify-content-center.row
      [:h1 "My aliens"]
-     (for [alien (first my-aliens)]
+     (for [alien  my-aliens]
       [:div.col.m-3 {:key (:alien_info_id alien)}
        [:div.card {:style {:width "18rem"}}
         (if (:user_photo alien)
@@ -114,14 +116,13 @@
         [:div.card-body
          [:h5.card-title (:username alien)]
          [:h6.card-subtitle.mb-2.text-muted "id " (:alien_info_id alien)]
-         [:h6.card-subtitle.mb-2.text-muted  (:status alien)]
+         ; [:h6.card-subtitle.mb-2.text-muted  (:status alien)]
          [:h6.card-subtitle.mb-2.text-muted  "Departure date " (:departure_date alien)]
-         [:p.card-text "text"]
 
          [:button.btn.card-link.btn-primary {
                                              :on-click #(.preventDefault %
                                                                          (dispatch [:alien-view (:alien_info_id alien)]))}
-          "Rate behavior"]]]])]))
+          (if (:reported alien) "Rated" "Rate behavior")]]]])]))
 
 
 (defn alien []

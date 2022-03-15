@@ -116,18 +116,7 @@
 
 (reg-event-fx
  :login-success
- ;; The standard set of interceptors, defined above, which we
- ;; use for all user-modifying event handlers. Looks after
- ;; writing user to localStorage.
- ;; NOTE: this chain includes `path` and `trim-v`
-
  set-user-interceptor
- ; The event handler function.
- ;; The "path" interceptor in `set-user-interceptor` means 1st parameter is the
- ;; value at `:user` path within `db`, rather than the full `db`.
- ;; And, further, it means the event handler returns just the value to be
- ;; put into `:user` path, and not the entire `db`.
- ;; So, a path interceptor makes the event handler act more like clojure's `update-in`
  (fn [cofx event]
    {:db         (first event)
     :dispatch [:set-active-page {:page :home}]}))
@@ -223,10 +212,12 @@
                  :on-success      [:send-report-success]
                  :on-failure      [:api-request-error {:request-type :send-report}]}}))
 
+
 (reg-event-fx
  :send-report-success
  (fn-traced [{:keys [db]} [_ answer]]
-   {:db (assoc db :alien-view-success answer)}))
+   {:db (assoc db :alien-view-success answer)
+    :dispatch [:set-active-page {:page :my-aliens}]}))
 
 ;; -- Request Handlers -----------------------------------------------------------
 ;;
