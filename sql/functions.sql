@@ -1,4 +1,18 @@
 
+-- функция отклонить заявку
+create or replace function reject_request(request_id int)
+    returns void
+as
+$$
+declare
+    reject_id int := (select id from request_status where name = 'REJECT');
+begin
+    update request set status_id = reject_id where id = request_id;
+
+end;
+$$ language plpgsql;
+
+
 -- функция создать заявку на VISIT
 create or replace function create_visit_request(userid int, planet_name varchar(64), visit_purp varchar(64),
                                                 staytime int, comm text)
@@ -78,6 +92,8 @@ begin
     return query select * from profession p where p.id = ANY (prof_ids);
 end;
 $$ language plpgsql;
+
+
 
 
 

@@ -38,3 +38,8 @@
  :requests
  (fn [db _]
      (:requests db)))
+
+(reg-sub
+ :request
+ (fn [db _]
+   (:request db)))

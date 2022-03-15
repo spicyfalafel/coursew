@@ -240,18 +240,29 @@
                              #(.preventDefault %
                                (dispatch [:logout]))} "Log out"]]]])]]))
 
+
 (defn requests-view []
   (let [requests @(subscribe [:requests])]
-       [:h1 "req-view"]
-       (for [req requests]
-         [:div
-          [:h5 "creator id " (:creator_id req)]
-          [:h5 "type " (:type req)]
+    [:div.align-items-center.justify-content-center.row
+       (map (fn [req]
+              [:div.card.m-3 {:key (:request_id req)
+                              :style {:max-width "540px"}}
+               [:div.row.g-0
+                [:div.col-md-4
+                 [:img.img-fluid.rounded-start.mt-5 {:src "/user.jpg"}]]
+                [:div.col-md-8
+                 [:div.card-body
+                   [:h5.card-title "Request #" (:request_id req)]
+                   [:h6.card-subtitle.mb-2.text-muted "Username: " (:username req)]
+                   [:h6.card-subtitle.mb-2.text-muted "Type: " (:type req)]
+                   [:h6.card-subtitle.mb-2.text-muted  "Status: " (:status req)]
+                   [:h6.card-subtitle.mb-2.text-muted  "Create date: " (:date req)]
+                   [:a.btn.card-link.btn-primary
 
-          [:h5 "status  " (:status req)]
-          [:h5 "create date " (:create_date req)]
-          [:h5 "alien form id " (:alien_form_id req)]])))
-
+                     {:on-click #(dispatch [:request (:request_id req)])}
+                      ; :href (url-for :request (:request_id req))}
+                    "Check out"]]]]])
+         requests)]))
 
 (defn alien-form []
   (let [user @(subscribe [:user])
@@ -311,6 +322,38 @@
               [:div.form-outline.mt-3
                [:button.btn.btn-primary.pull-xs-right "Send request"]])]]))))
 
+
+(defn request-view []
+  (let [req @(subscribe [:request])
+        {:keys [request_id username date request_type status
+                planet_name race visit_purpose stay_time comment user_photo skills]} req
+        reject (fn [event req-id]
+                 (.preventDefault event)
+                 (dispatch [:reject-request req-id]))]
+
+    (fn []
+      (when (not (empty? req))
+        [:div.container
+         [:div
+          [:br]
+          [:h3.text-center "Request"]
+          [:img.rounded.float-start {:src "/user.jpg"}]
+          [:br] "Username: " username
+          [:br] "Request id: " request_id
+          [:br] "Created date: " date
+          [:br] "Request type: " request_type
+          [:br] "Status: " status
+          [:br] "Planet: " planet_name
+          [:br] "Race: " race
+          [:br] "Visit purpose: " visit_purpose
+          [:br] "Stay time: " stay_time " days"
+          [:br] "Comment: " comment]
+         [:div "Skills: " (for [skill skills] (str skill " "))]
+         [:div
+          [:button.btn.btn-primary  {:on-click #(reject % request_id)} "Reject"]
+
+          [:button.btn.btn-primary.m-3 "Accept and choose human personality"]]]))))
+
 (defn pages
   [page-name]
   (case page-name
@@ -322,6 +365,7 @@
     :my-aliens [aliens]
     :alien-view [alien]
     :requests [requests-view]
+    :request [request-view]
     ;; alien
     :alien-form [alien-form]
     [home]))

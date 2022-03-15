@@ -109,35 +109,15 @@
      :body (assoc alien-form :skills skills)}))
 
 
-
-
-;; далее.
-;; requests - отображаются заявки на посещение земли, которые PENDING
-;; должны быть кнопки принять и отклонить
-;; если принимаем, тогда надо создавать личность пришельцу
-(defn get-requests [request]
-  (let [_ (println request)
-        ans (db/get-pending-requests)]
+(defn get-requests [_]
+  (let [ans (db/get-pending-requests)]
     {:status 200
      :body ans}))
 
-; (first (db/get-pending-requests))
-; /request/id - endpoint для рассмотрения определенной заявки
-  ; Сотрудник вводит имя, фамилию, возраст для личности
-  ; Сотрудник на основании навыков в анкете пришельца выбирает для него профессию
-  ; Сотрудник выбирает город, страну проживания для личности
-  ; Сотрудник прикрепляет фотографию личности человека
-  ; Сотрудник сохраняет человеческую личность для пришельца
-
-
-; подумать над вот этим
-  ; Регистрация пришельца на Земле
-  ; Сотрудник бюро авторизуется в системе
-  ; Сотрудник выставляет статус гостя в значение “На Земле”
-  ; Система дает доступ пришельцу к описанию его личности в личном кабинете и выставляет дату отбытия с Земли
-  ; К пришельцу прикрепляется сотрудник для отслеживания его действий на Земле
-
-; 5, 6 - тупо не успею
+(defn set-request-rejected [request-id]
+    (db/set-request-rejected (Integer/parseInt request-id))
+    {:status 200
+     :body "OK"})
 
 (defn save-alien-form [req]
   (let [body (:body req)
@@ -150,11 +130,19 @@
          :body ids}
         {:status 400})))
 
+(defn get-request-and-form [req-id]
+  (let [ans (db/request-and-form (Integer/parseInt req-id))
+        skills (db/skills-alien-form (:alien_form_id ans))]
+    {:status 200
+     :body (assoc ans :skills skills)}))
 
+; (get-request-and-form "4")
 
 (compojure/defroutes routes
   (compojure/context "/api" []
     (compojure/GET "/requests" request (get-requests request))
+    (compojure/GET "/requests/:id" [id] (get-request-and-form id))
+    (compojure/POST "/requests/:id/reject" [id] (set-request-rejected id))
     (compojure/context "/users" []
       (compojure/POST "/login" request (login request))
       (compojure/POST "/register" request (register request)))

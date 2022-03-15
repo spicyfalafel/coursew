@@ -26,20 +26,22 @@ where al.id = ? and s.name = 'ON EARTH';
 
 -- 4 ищем заявки на визит планеты, которые надо обработать
 select r.id as request_id, r.creator_id, r.create_date,
-       s.name as status, t.name as type
+       s.name as status, t.name as type, u.username, u.user_photo
 from request r
 join request_type t on r.type_id = t.id
 join request_status s on s.id = r.status_id
+join "user" u on r.creator_id = u.id
 where s.name = 'PENDING' and t.name = 'VISIT';
 
 -- 5 ищем информацию о заявке на визит по её айди, включая анкету пришельца
-select r.id, r.creator_id, r.create_date,
-       t.name, s.name,
+select r.id as request_id, r.creator_id, r.create_date,
+       t.name as request_type, s.name as status,
        f.planet_id, f.visit_purpose, f.stay_time, f.comment,
-       p.name, p.race
+       p.name as planet_name, p.race, u.username, u.user_photo
 from request r
 join request_type t on r.type_id = t.id
 join request_status s on s.id = r.status_id
 join alien_form f on r.alien_form_id = f.id
 join planet p on p.id = f.planet_id
+join "user" u on f.user_id = u.id
 where r.id=? and s.name = 'PENDING' and t.name = 'VISIT';

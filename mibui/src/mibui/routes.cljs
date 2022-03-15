@@ -12,7 +12,7 @@
                       [:id ""] :alien-view}
         "alien-form" :alien-form
         "requests" :requests
-        "another"  :another}])
+        "request" :request}])
 
 
 ;; -- History -----------------------------------------------------------------

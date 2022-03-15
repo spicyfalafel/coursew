@@ -120,6 +120,27 @@
                            join profession prof on prof.id = p.profession_id
                            where al.id = ? and s.name = 'ON EARTH'" alien-info-id])))
 
+
+(defn form-by-request-id [request-id]
+  (jdbc/query pg-db ["select r.id as request_id, r.creator_id, r.create_date,
+                     t.name as request_type, s.name as status,
+                     f.planet_id, f.visit_purpose, f.stay_time, f.comment,
+                     p.name as planet_name, p.race
+                     from request r
+                     join request_type t on r.type_id = t.id
+                     join request_status s on s.id = r.status_id
+                     join alien_form f on r.alien_form_id = f.id
+                     join planet p on p.id = f.planet_id
+                     where r.id=? and s.name = 'PENDING' and t.name = 'VISIT'" request-id]))
+
+; (defn alien-form-by-user-id [user-id]
+;   (jdbc/query pg-db ["select f.id as alien_form_id, f.user_id, p.name as planet_name, f.visit_purpose as visit_purp,
+;                       f.stay_time as staytime, f.comment as comm from alien_form f
+;                       join request r on f.id = r.alien_form_id
+;                       join request_status s on s.id = r.status_id
+;                       join planet p on p.id = f.planet_id
+;                       where s.name = 'PENDING' "]))
+
 (defn alien-info [user-id]
   (jdbc/query pg-db ["select ai.id as alien_info_id, ai.departure_date, s.name as status from alien_info ai
                      join alien_status s on s.id = ai.alien_status_id where ai.user_id = ?" user-id]))
@@ -198,15 +219,37 @@
 
 
 (defn get-pending-requests []
-  (into #{} (jdbc/query pg-db [
-                               "select r.id as request_id, r.creator_id, date(r.create_date),
-                               s.name as status, t.name as type
+  (into [] (jdbc/query pg-db [
+                              "select r.id as request_id, r.creator_id, date(r.create_date),
+                               s.name as status, t.name as type, u.username, u.user_photo
                                from request r
                                join request_type t on r.type_id = t.id
                                join request_status s on s.id = r.status_id
-                               where s.name = 'PENDING' and t.name = 'VISIT'"])))
+                               join \"user\" u on r.creator_id = u.id
+                               where s.name = 'PENDING' and t.name = 'VISIT'
+                               order by r.id"])))
+
+(defn request-and-form [request-id]
+  (first (jdbc/query pg-db
+                     ["select r.id as request_id, r.creator_id, date(r.create_date),
+                        t.name as request_type, s.name as status,
+                        f.id as alien_form_id,
+                        f.planet_id, f.visit_purpose, f.stay_time, f.comment,
+                        p.name as planet_name, p.race,
+                        u.username, u.user_photo
+                        from request r
+                        join request_type t on r.type_id = t.id
+                        join request_status s on s.id = r.status_id
+                        join alien_form f on r.alien_form_id = f.id
+                        join planet p on p.id = f.planet_id
+                        join \"user\" u on f.user_id = u.id
+                        where r.id=? and s.name = 'PENDING' and t.name = 'VISIT'" request-id])))
 
 
+(defn set-request-rejected [request-id]
+  (jdbc/query pg-db ["select reject_request(?)" request-id]))
+
+; (request-and-form 4)
 (defn skills-alien-form [form-id]
   (map (comp :name) (jdbc/query pg-db ["select name from alien_form f
                      join skill_in_alien_form siaf on f.id = siaf.alien_form_id

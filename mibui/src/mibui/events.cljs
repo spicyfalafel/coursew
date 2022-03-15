@@ -24,7 +24,8 @@
 
 ;; -- helpers ---------------------------------------------------------------
 ;;
-(def api-url "http://localhost:8080/api")
+(def port 8080)
+(def api-url (str "http://localhost:" port "/api"))
 
 (defn endpoint
   "Concat any params to api-url separated by /"
@@ -80,7 +81,7 @@
 
 (reg-event-fx                                            ;; usage: (dispatch [:set-active-page {:page :home})
  :set-active-page                                        ;; triggered when the user clicks on a link that redirects to another page
- (fn [{:keys [db]} [_ {:keys [page]}]] ;; destructure 2nd parameter to obtain keys
+ (fn [{:keys [db]} [_ {:keys [page some-id]}]] ;; destructure 2nd parameter to obtain keys
    (let [set-page (assoc db :active-page page)]
      (case page
        ;; -- URL @ "/" --------------------------------------------------------
@@ -95,26 +96,51 @@
                     :dispatch [:form-from-db (:user_id (:user db))]}
        :requests {:db set-page
                   :dispatch [:requests]}
+       :request {:db set-page}
+                 ; :dispatch [:request some-id]}
        {:db set-page}))))
 
 ;; -- POST requests @ /api/requests -------------------------------------------
 ;;
-(reg-event-fx                                        ;; usage (dispatch [:login user])
- :requests                                              ;; triggered when a users submits login form
- (fn [{:keys [db]} [_]]                  ;; credentials = {:login ... :password ...}
+(reg-event-fx
+ :requests
+ (fn [{:keys [db]} [_]]
    {:db         db
     :http-xhrio {:method          :get
-                 :uri             (endpoint "requests") ;; evaluates to "api/users/login"
-                 ; :params          {:user credentials}    ;; {:user {:email ... :password ...}}
-                 :format          (json-request-format)  ;; make sure it's json
-                 :response-format (json-response-format {:keywords? true}) ;; json response and all keys to keywords
-                 :on-success      [:requests-success]       ;; trigger :login-success event
-                 :on-failure      [:api-request-error {:request-type :requests}]}})) ;; trigger :api-request-error event
+                 :uri             (endpoint "requests")
+                 :format          (json-request-format)
+                 :response-format (json-response-format {:keywords? true})
+                 :on-success      [:requests-success]
+                 :on-failure      [:api-request-error {:request-type :requests}]}}))
 
 (reg-event-fx
  :requests-success
- (fn [{:keys [db]} event]
-   {:db        (db assoc :requests event)}))
+
+ (fn [{:keys [db]} [_ requests]]
+   (println requests)
+   {:db        (assoc db :requests requests)}))
+
+
+;; --------------
+
+(reg-event-fx
+ :request
+ (fn [{:keys [db]} [_ req-id]]
+   {:db         db
+    :http-xhrio {:method          :get
+                 :uri             (endpoint "requests" req-id)
+                 :format          (json-request-format)
+                 :response-format (json-response-format {:keywords? true})
+                 :on-success      [:request-success]
+                 :on-failure      [:api-request-error {:request-type :request}]}}))
+
+(reg-event-fx
+ :request-success
+
+ (fn [{:keys [db]} [_ request]]
+   ; (println requests)
+   {:db        (assoc db :request request)
+    :dispatch [:set-active-page {:page :request}]}))
 
 ;; -- POST Login @ /api/users/login -------------------------------------------
 ;;
@@ -215,6 +241,7 @@
     :dispatch [:set-active-page {:page :alien-view}]}))
 
 
+
 ;; -- POST tracking-report @ /api/my-aliens/id ------------------------------------------
 ;; {:report_date <date>, :behavior <0..10>, :description <text>}
 
@@ -274,6 +301,27 @@
  :form-from-db-success
  (fn-traced [{:keys [db]} [_ answer]]
    {:db (assoc db :alien-form answer)}))
+
+; reject-request <request-id>
+
+(reg-event-fx
+ :reject-request
+ (fn-traced [{:keys [db]} [_ request-id]]
+
+   {:db         db
+    :http-xhrio {:method          :post
+                 :uri             (endpoint "requests" request-id "reject")
+                 :format          (json-request-format)
+                 :response-format (json-response-format {:keywords? true})
+                 :on-success      [:reject-success]
+                 :on-failure      [:api-request-error {:request-type :reject-request}]}}))
+
+(reg-event-fx
+ :reject-success
+ (fn-traced [{:keys [db]} [_ answer]]
+   {:db (dissoc db :request)
+    :dispatch [:set-active-page {:page :my-aliens}]}))
+
 
 ;; -- Request Handlers -----------------------------------------------------------
 ;;
