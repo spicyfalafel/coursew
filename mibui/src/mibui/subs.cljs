@@ -43,3 +43,8 @@
  :request
  (fn [db _]
    (:request db)))
+
+(reg-sub
+ :professions
+ (fn [db _]
+   (:professions db)))

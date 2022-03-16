@@ -97,6 +97,7 @@
        :requests {:db set-page
                   :dispatch [:requests]}
        :request {:db set-page}
+                 ; :dispatch [:skills-by-user-id (:creator_id (:request db))]}
                  ; :dispatch [:request some-id]}
        {:db set-page}))))
 
@@ -140,7 +141,8 @@
  (fn [{:keys [db]} [_ request]]
    ; (println requests)
    {:db        (assoc db :request request)
-    :dispatch [:set-active-page {:page :request}]}))
+    :dispatch-n [[:skills-by-user-id (:creator_id request)]
+                 [:set-active-page {:page :request}]]}))
 
 ;; -- POST Login @ /api/users/login -------------------------------------------
 ;;
@@ -321,6 +323,45 @@
  (fn-traced [{:keys [db]} [_ answer]]
    {:db (dissoc db :request)
     :dispatch [:set-active-page {:page :my-aliens}]}))
+
+;; accept request
+(reg-event-fx
+ :accept-request
+ (fn-traced [{:keys [db]} [_ request-id form]]
+    {:db db
+     :http-xhrio {:method          :post
+                  :uri             (endpoint "requests" request-id "accept")
+                  :params           form
+                  :format          (json-request-format)
+                  :response-format (json-response-format {:keywords? true})
+                  :on-success      [:accept-success]
+                  :on-failure      [:api-request-error {:request-type :accept-request}]}}))
+
+(reg-event-fx
+ :accept-success
+ (fn-traced [{:keys [db]} [_ answer]]
+    {:db (dissoc db :request)
+     :dispatch [:set-active-page {:page :my-aliens}]}))
+
+; skills-by-user-id
+
+(reg-event-fx
+ :skills-by-user-id
+ (fn-traced [{:keys [db]} [_ user-id]]
+   (println user-id)
+   {:db         db
+    :http-xhrio {:method          :get
+                 :uri             (endpoint "skills" user-id)
+                 :format          (json-request-format)
+                 :response-format (json-response-format {:keywords? true})
+                 :on-success      [:skills-by-user-id-success]
+                 :on-failure      [:api-request-error {:request-type :skills-by-user-id}]}}))
+
+(reg-event-fx
+ :skills-by-user-id-success
+ (fn-traced [{:keys [db]} [_ professions]]
+   {:db (assoc-in db [:professions] professions)
+    :dispatch [:set-active-page {:page :request}]}))
 
 
 ;; -- Request Handlers -----------------------------------------------------------

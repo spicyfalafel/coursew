@@ -123,7 +123,7 @@
          [:h5.card-title (:username alien)]
          [:h6.card-subtitle.mb-2.text-muted "id " (:alien_info_id alien)]
          ; [:h6.card-subtitle.mb-2.text-muted  (:status alien)]
-         [:h6.card-subtitle.mb-2.text-muted  "Departure date " (:departure_date alien)]
+         ; [:h6.card-subtitle.mb-2.text-muted  "Departure date " (:departure_date alien)]
 
          [:button.btn.card-link.btn-primary {
                                              :on-click #(.preventDefault %
@@ -256,7 +256,7 @@
                    [:h6.card-subtitle.mb-2.text-muted "Username: " (:username req)]
                    [:h6.card-subtitle.mb-2.text-muted "Type: " (:type req)]
                    [:h6.card-subtitle.mb-2.text-muted  "Status: " (:status req)]
-                   [:h6.card-subtitle.mb-2.text-muted  "Create date: " (:date req)]
+                   ; [:h6.card-subtitle.mb-2.text-muted  "Create date: " (:date req)]
                    [:a.btn.card-link.btn-primary
 
                      {:on-click #(dispatch [:request (:request_id req)])}
@@ -324,35 +324,101 @@
 
 
 (defn request-view []
-  (let [req @(subscribe [:request])
-        {:keys [request_id username date request_type status
-                planet_name race visit_purpose stay_time comment user_photo skills]} req
+  (let [user @(subscribe [:user])
+        req @(subscribe [:request])
+        professions @(subscribe [:professions])
+        {:keys [request_id username date request_type status creator_id
+                planet_name race visit_purpose stay_time comment user_photo skills]}
+        req
+        _ (dispatch [:skills-by-user-id creator_id])
+        status-here (reagent/atom :pending)
         reject (fn [event req-id]
                  (.preventDefault event)
-                 (dispatch [:reject-request req-id]))]
-
+                 (dispatch [:reject-request req-id])
+                 (reset! status-here :rejected))
+        form-inputs (reagent/atom {:request_id (:request_id req)
+                                   :creatorid (:creator_id req)
+                                   :executorid (:user_id user)})
+        accept (fn [event data]
+                 (.preventDefault event)
+                 (dispatch [:accept-request request_id data])
+                 (reset! status-here :accepted))
+        get-skills (fn [event id]
+                     (.preventDefault event)
+                     ; (println "HELLO?")
+                     (dispatch [:skills-by-user-id id]))]
     (fn []
-      (when (not (empty? req))
-        [:div.container
-         [:div
-          [:br]
-          [:h3.text-center "Request"]
-          [:img.rounded.float-start {:src "/user.jpg"}]
-          [:br] "Username: " username
-          [:br] "Request id: " request_id
-          [:br] "Created date: " date
-          [:br] "Request type: " request_type
-          [:br] "Status: " status
-          [:br] "Planet: " planet_name
-          [:br] "Race: " race
-          [:br] "Visit purpose: " visit_purpose
-          [:br] "Stay time: " stay_time " days"
-          [:br] "Comment: " comment]
-         [:div "Skills: " (for [skill skills] (str skill " "))]
-         [:div
-          [:button.btn.btn-primary  {:on-click #(reject % request_id)} "Reject"]
+      (case @status-here
+        :pending [:div.container
+                  [:div
+                   [:br]
+                   [:h3.text-center "Request"]
+                   [:img.rounded.float-start {:src "/user.jpg"}]
+                   [:br] "Username: " username ;creator_id
+                   [:br] "Request id: " request_id
+                   [:br] "Created date: " date
+                   [:br] "Request type: " request_type
+                   [:br] "Status: " status
+                   [:br] "Planet: " planet_name
+                   [:br] "Race: " race
+                   [:br] "Visit purpose: " visit_purpose
+                   [:br] "Stay time: " stay_time " days"
+                   [:br] "Comment: " comment]
+                  [:div "Skills: " (for [skill skills] (str skill " "))]
+                  [:div.row.align-items-center.justify-content-center
+                   [:button.btn.btn-primary.w-25  {:on-click #(reject % request_id)} "Reject"]
 
-          [:button.btn.btn-primary.m-3 "Accept and choose human personality"]]]))))
+                   [:button.btn.btn-primary.m-3.w-25 {:on-click
+                                                      #(accept % @form-inputs)} "Accept"]]
+                  [:div.row.align-items-center.justify-content-center
+                   [:h3.text-center "Personality"]
+                   [:form.col-4.text-center ;{:on-submit #(send-form % @al-form)}
+                    [:div.form-outline.mb-2
+                     [:input.form-control {:id :first_name
+                                           :type        "text"
+                                           ; :value       planet_name
+                                           :on-change   #(swap! form-inputs assoc :firstname (-> % .-target .-value))}]
+                     [:label.form-label {:for :first_name} "First name"]]
+                    [:div.form-outline.mb-2
+                        [:input.form-control {:id :second_name
+                                              :type        "text"
+                                              ; :value       visit_purp
+                                              :on-change   #(swap! form-inputs assoc :secondname (-> % .-target .-value))}]
+                        [:label.form-label {:for :second_name} "Second name"]]
+                    [:div.form-outline.mb-2
+                        [:input.form-control {:id :age
+                                              :type        "text"
+                                              ; :value       staytime
+                                              :on-change   #(swap! form-inputs assoc :agearg (-> % .-target .-value int))}]
+                        [:label.form-label {:for :age} "Age"]]
+                    [:div.form-outline.mb-2
+                        [:input.form-control {:id :profession
+                                              :type        "text"
+                                              ; :value skills
+                                              :on-change   #(swap! form-inputs assoc
+                                                                   :professionname (-> % .-target .-value))}]
+                        [:label.form-label {:for :profession} "Profession"]
+                        ; [:button.btn {:on-click #(get-skills % creator_id)} "Get available professions"]
+                        ; (when (seq professions)
+                     (doall [:div
+                             [:div.form-text "Available professions for this alien: " (str/join " " (map :name professions))]])]
+
+
+                    [:div.form-outline.mb-2
+                        [:input.form-control {:id :country
+                                              :type        "text"
+                                              ; :value       comm
+                                              :on-change   #(swap! form-inputs assoc :countryname (-> % .-target .-value))}]
+                        [:label.form-label {:for :country} "Country"]]
+                    [:div.form-outline.mb-2
+                        [:input.form-control {:id :city
+                                              :type        "text"
+                                              ; :value       comm
+                                              :on-change   #(swap! form-inputs assoc :cityname (-> % .-target .-value))}]
+                        [:label.form-label {:for :city} "City"]]]]]
+
+        :rejected [:div "Rejected request " request_id]
+        :accepted [:div "Accepted request " request_id]))))
 
 (defn pages
   [page-name]

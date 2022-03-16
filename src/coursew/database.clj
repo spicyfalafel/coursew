@@ -242,7 +242,7 @@
                         join request_status s on s.id = r.status_id
                         join alien_form f on r.alien_form_id = f.id
                         join planet p on p.id = f.planet_id
-                        join \"user\" u on f.user_id = u.id
+                        join \"user\" u on r.creator_id = u.id
                         where r.id=? and s.name = 'PENDING' and t.name = 'VISIT'" request-id])))
 
 
@@ -258,23 +258,31 @@
 
 ; (skills-alien-form 1022)
 
-(comment
-  (user-by-cred "123" "123")
-  (user-by-cred "1" "1")
-  (def report {:report-date "2022-03-12"
-               :behavior 10
-               :description "some text"
-               :agent_alien_id 1})
+(defn skills-by-user-id [user-id]
+  (jdbc/query pg-db ["select * from get_professions_by_user_id(?)" user-id]))
 
-  ; #time/ld "2022-01-01"
-  (jdbc/insert! pg-db :tracking_report {:report_date #time/ld "2022-03-12"
-                                        :behavior 2
-                                        :description "f"
-                                        :agent_alien_id 1})
-  (ins-report! "2022-03-12" 7 "gfd" 1)
+; =)
+(defn accept-request [{:keys [request_id creatorid executorid firstname secondname agearg professionname cityname countryname personphoto]}]
+  (println "KEYS " (str/join " " [request_id creatorid executorid firstname secondname agearg professionname cityname countryname personphoto]))
+  (jdbc/query pg-db ["select from accept_request(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" request_id creatorid executorid firstname secondname agearg professionname cityname countryname personphoto])
+
+  (comment
+     (user-by-cred "123" "123")
+     (user-by-cred "1" "1")
+     (def report {:report-date "2022-03-12"
+                   :behavior 10
+                   :description "some text"
+                   :agent_alien_id 1})
+
+     ; #time/ld "2022-01-01"
+     (jdbc/insert! pg-db :tracking_report {:report_date #time/ld "2022-03-12"
+                                            :behavior 2
+                                            :description "f"
+                                            :agent_alien_id 1})
+     (ins-report! "2022-03-12" 7 "gfd" 1)
 
 
-  (register-alien "fsdf" "fsdfsd")
-  (first (register-agent "12345fsdfsd6" "123456"))
+     (register-alien "fsdf" "fsdfsd")
+     (first (register-agent "12345fsdfsd6" "123456"))
 
-  (jdbc/query pg-db ["select * from register_user(?, ?)" "2" "2"]))
+     (jdbc/query pg-db ["select * from register_user(?, ?)" "2" "2"])))

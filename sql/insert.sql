@@ -213,7 +213,7 @@ declare
 begin
     with ins as (
         insert into alien_form (user_id, planet_id, visit_purpose, stay_time, comment)
-            select user_ids[1 + floor(random() * array_length(user_ids, 1))::int],
+            select user_ids[i],
                    planets_ids[1 + floor(random() * array_length(planets_ids, 1))::int],
                    md5(i::text),
                    floor(random() * 500 + 1)::int,
@@ -356,7 +356,7 @@ begin
         loop
             if (i % 4 = 0) then -- VISIT
                 insert into request(creator_id, executor_id, type_id, status_id, alien_form_id)
-                values (aliens_ids[i], null, visit_id, not_on_earth, alien_forms_ids[(temp % forms) + 1]);
+                values (aliens_ids[i], null, visit_id, not_on_earth, (select id from alien_form where user_id = aliens_ids[i]));
 
             elsif (i % 4 = 1) then -- WARNING
                 insert into request(creator_id, executor_id, type_id, status_id, alien_form_id)
@@ -482,3 +482,13 @@ select generate_alien_info();
 select generate_warning(2000);
 select generate_agent_alien();
 select generate_tracking_report(365);
+
+update "user" set username = 'alien', passw_hash = 'alien' where id = 3;
+update "user" set username = 'agent', passw_hash = 'agent' where id = 1005;
+
+update skill set name = 'skill1' where id = 2;
+update skill set name = 'skill2' where id = 3;
+update skill set name = 'skill3' where id = 4;
+update skill set name = 'skill4' where id = 5;
+
+update location set city = 'city', country = 'country' where id = 3;

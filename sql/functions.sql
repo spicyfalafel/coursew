@@ -12,6 +12,29 @@ begin
 end;
 $$ language plpgsql;
 
+-- функция принять заявку
+create or replace function accept_request(request_id int, creatorid int, executorid int,
+                                          firstname varchar(64), secondname varchar(64),
+                                          agearg int, professionname varchar(64), cityname varchar(64),
+                                          countryname varchar(64), personphoto bytea)
+    returns void
+as
+$$
+declare
+    accept_id int := (select id from request_status where name = 'APPROVED');
+    prof_id int := (select id from profession where name = professionname);
+    loc_id int := (select id from location where city = cityname and country = countryname);
+    userid int := (select id from "user" where id = creatorid);
+    alien_info_id int := (select id from alien_info where user_id = userid);
+    person_id int;
+begin
+    update request set status_id = accept_id, executor_id = executorid where id = request_id;
+    insert into alien_personality(first_name, second_name, age, profession_id, location_id, person_photo)
+    values (firstname, secondname, agearg, prof_id, loc_id, personphoto) returning id into person_id;
+    update alien_info set personality_id = person_id where id = alien_info_id;
+end;
+$$ language plpgsql;
+
 
 -- функция создать заявку на VISIT
 create or replace function create_visit_request(userid int, planet_name varchar(64), visit_purp varchar(64),

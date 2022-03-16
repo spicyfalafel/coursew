@@ -138,11 +138,28 @@
 
 ; (get-request-and-form "4")
 
+
+(defn accept-request [req]
+  (let [params (:body req)
+        _  (println "PARAMS " params)
+        _ (db/accept-request params)]
+    {:status 200
+     :body "ok"}))
+
+(defn skills-by-user-id [user-id]
+  (let [skills (db/skills-by-user-id (Integer/parseInt user-id))]
+     {:status 200
+      :body skills}))
+
 (compojure/defroutes routes
   (compojure/context "/api" []
-    (compojure/GET "/requests" request (get-requests request))
+    (compojure/context "/requests/:id" [id]
+      (compojure/POST "/accept" request (accept-request request)))
     (compojure/GET "/requests/:id" [id] (get-request-and-form id))
     (compojure/POST "/requests/:id/reject" [id] (set-request-rejected id))
+    (compojure/GET "/skills/:id" [id] (skills-by-user-id id))
+    (compojure/GET "/requests" request (get-requests request))
+    ; (compojure/POST "/requests/:id/accept" [id])
     (compojure/context "/users" []
       (compojure/POST "/login" request (login request))
       (compojure/POST "/register" request (register request)))
