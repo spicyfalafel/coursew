@@ -492,3 +492,5 @@ update skill set name = 'skill3' where id = 4;
 update skill set name = 'skill4' where id = 5;
 
 update location set city = 'city', country = 'country' where id = 3;
+
+update planet set name = 'planet1' where id = 3;
