@@ -5,13 +5,21 @@
 - Фронт ClojureScript: shadow-cljs, re-frame
 
 ## Модель
-![This is an image](https://myoctocat.com/assets/images/base-octocat.svg)
+![This is an image](doc/model.jpg)
 
 ## Скриншоты
+![This is an image](doc/screen1.jpg)
+![This is an image](doc/screen2.png)
+![This is an image](doc/screen3.png)
+![This is an image](doc/screen4.png)
+![This is an image](doc/screen5.png)
+![This is an image](doc/screen6.png)
+![This is an image](doc/screen7.png)
 
 
 ## Бизнес-процессы
 (реализованы не все)
+
 Пришельцы хотят посетить Землю, и пожить там какое-то время, для этого они должны заполнить анкету и отправить заявку на посещение Земли.
 
 Подача заявки пришельцем на посещение Земли
