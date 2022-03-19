@@ -16,7 +16,6 @@
            [java.io FileWriter]))
 
 
-
 (defn load-edn
   "Load edn from an io/reader source (filename or io/resource)."
   [source]
@@ -41,10 +40,11 @@
 
 
 (def pg-db
-  (atom ;; хочу менять в тестах базу данных, ничего умнее не придумалы
+  (atom ;; хочу менять в тестах базу данных, ничего умнее не придумал
     (if-let [config (load-edn config-filename)]
       config
       default-config)))
+
 
 (defn set-db [db-config]
   (reset! pg-db db-config))
@@ -52,9 +52,10 @@
 (defn reset-db []
   (reset! pg-db default-config))
 
-(def query (partial jdbc/query @pg-db))
+(defn query [params]
+  (jdbc/query @pg-db params))
 
-(def ins! (partial jdbc/insert! @pg-db))
+(defn ins! [table values] (jdbc/insert! @pg-db table values))
 
 ;;---------------------------date insertion fix---------------------------------
 (extend-protocol jdbc/IResultSetReadColumn
@@ -162,8 +163,8 @@
 
 
 (defn create-visit-request [{:keys [userid planet_name visit_purp staytime comm]}]
-  (first (query ["select * from create_visit_request(?, ?, ?, ?, ?)"]
-             userid planet_name visit_purp staytime comm)))
+  (first (query ["select * from create_visit_request(?, ?, ?, ?, ?)"
+                 userid planet_name visit_purp staytime comm])))
 
 (defn form-add-skills [form-id skills]
   (let [skills-arg (str "'{" (str/join "," skills)  "}'")]
