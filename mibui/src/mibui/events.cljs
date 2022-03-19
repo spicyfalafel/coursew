@@ -8,8 +8,7 @@
    [day8.re-frame.tracing :refer-macros [fn-traced]]
    [clojure.string :as str]
    [cljs.reader :as rdr]
-   [mibui.routes :as routes]
-   [clojure.set :as set]))
+   [mibui.routes :as routes]))
 
 (def set-user-interceptor [(path :user)
                            (println "set-user-interceptor");; `:user` path within `db`, rather than the full `db`.
@@ -81,7 +80,7 @@
 
 (reg-event-fx                                            ;; usage: (dispatch [:set-active-page {:page :home})
  :set-active-page                                        ;; triggered when the user clicks on a link that redirects to another page
- (fn [{:keys [db]} [_ {:keys [page some-id]}]] ;; destructure 2nd parameter to obtain keys
+ (fn [{:keys [db]} [_ {:keys [page]}]] ;; destructure 2nd parameter to obtain keys
    (let [set-page (assoc db :active-page page)]
      (case page
        ;; -- URL @ "/" --------------------------------------------------------
@@ -101,6 +100,7 @@
                  ; :dispatch [:request some-id]}
        {:db set-page}))))
 
+
 ;; -- POST requests @ /api/requests -------------------------------------------
 ;;
 (reg-event-fx
@@ -114,15 +114,14 @@
                  :on-success      [:requests-success]
                  :on-failure      [:api-request-error {:request-type :requests}]}}))
 
+
 (reg-event-fx
  :requests-success
-
  (fn [{:keys [db]} [_ requests]]
    (println requests)
    {:db        (assoc db :requests requests)}))
 
 
-;; --------------
 
 (reg-event-fx
  :request
@@ -139,7 +138,6 @@
  :request-success
 
  (fn [{:keys [db]} [_ request]]
-   ; (println requests)
    {:db        (assoc db :request request)
     :dispatch-n [[:skills-by-user-id (:creator_id request)]
                  [:set-active-page {:page :request}]]}))
@@ -161,7 +159,7 @@
 (reg-event-fx
  :login-success
  set-user-interceptor
- (fn [cofx event]
+ (fn [_ event]
    {:db         (first event)
     :dispatch [:set-active-page {:page :home}]}))
 
@@ -169,36 +167,32 @@
 
 ;; -- POST Registration @ /api/users ------------------------------------------
 ;;
-(reg-event-fx                                              ;; usage (dispatch [:register-user registration])
- :register-user                                            ;; triggered when a users submits registration form
- (fn [{:keys [db]} [_ registration]]                       ;; registration = {:username ... :email ... :password ...}
-   {;:db         db
-    :http-xhrio {:method          :post
-                 :uri             (endpoint "users" "register")     ;; evaluates to "api/users/register"
-                 :params          {:user registration}   ;; {:user {:username ... :email ... :password ...}}
-                 :format          (json-request-format)  ;; make sure it's json
-                 :response-format (json-response-format {:keywords? true}) ;; json response and all keys to keywords
-                 :on-success      [:register-user-success] ;; trigger :register-user-success event
-                 :on-failure      [:api-request-error {:request-type :register-user}]}})) ;; trigger :api-request-error event
+(reg-event-fx
+ :register-user
+ (fn [{:keys [_]} [_ registration]]
+   {:http-xhrio {:method          :post
+                 :uri             (endpoint "users" "register")
+                 :params          {:user registration}
+                 :format          (json-request-format)
+                 :response-format (json-response-format {:keywords? true})
+                 :on-success      [:register-user-success]
+                 :on-failure      [:api-request-error {:request-type :register-user}]}}))
+
 
 (reg-event-fx
  :register-user-success
  set-user-interceptor
-
- (fn [user event]
-   (println "event " event)
-   (println "ff event" (first (first event)))
+ (fn [_ event]
    {:db (first (first event))
     :dispatch [:set-active-page {:page :home}]}))
 
-(reg-event-fx                                            ;; usage (dispatch [:logout])
+(reg-event-fx
  :logout
  remove-user-interceptor
  ;; The event handler function removes the user from
  ;; app-state = :db and sets the url to "/".
-  (fn [{:keys [db]} _]
-    ; (println "logout " db)
-    {:db       {};{:active-page :login}                          ;; remove user from db
+  (fn [{:keys [_]} _]
+    {:db       {}
      :dispatch [:set-active-page {:page :home}]}))
 
 
@@ -287,6 +281,7 @@
  (fn-traced [{:keys [db]} [_ answer]]
    {:db (assoc db :alien-form answer)}))
 
+
 (reg-event-fx
  :form-from-db
  (fn-traced [{:keys [db]} [_ user-id]]
@@ -303,6 +298,8 @@
  :form-from-db-success
  (fn-traced [{:keys [db]} [_ answer]]
    {:db (assoc db :alien-form answer)}))
+
+
 
 ; reject-request <request-id>
 

@@ -3,7 +3,6 @@
    [immutant.web :as web]
    [compojure.route :as cjr]
    [compojure.core :as compojure]
-   ; [cheshire.core :refer [generate-string]]
    [cheshire.generate :refer [JSONable]]
    [ring.middleware.cors :refer [wrap-cors]]
    [ring.middleware.params :refer [wrap-params]]
@@ -12,11 +11,7 @@
    [ring.middleware.session :refer [wrap-session]]
    [ring.middleware.session.cookie]
    [clojure.string :as str]
-   ; [ring.util.response :only [response]]
-   ; [buddy.auth.backends.token :refer [token-backend]]
-   ; [buddy.auth.middleware :refer [wrap-authentication]]
-   [coursew.database :as db]
-   [coursew.auth :as auth])
+   [coursew.database :as db])
   (:gen-class))
 
 
@@ -45,21 +40,19 @@
     (if (empty? user)
         {:status 404
          :body [(str "no such user " username " " password)]}
-        (let [user-id (:user_id user)
-              token (auth/generate-signature username password)
-              user-token (assoc user :token token)]
+        (let [user-id (:user_id user)]
           (if-let [agent-info (db/get-if-agent user-id)]
                   {:status 200
-                   :body (merge user-token (first agent-info))}
+                   :body (merge user (first agent-info))}
                   (if-let [alien-info (db/get-if-alien user-id)]
                     {:status 200
-                     :body (merge user-token (first alien-info))}
+                     :body (merge user (first alien-info))}
                     {:status 404 :body "error"}))))))
 
+
 (defn register [request]
-  (let [username (-> request :body :user :username)
-        password (-> request :body :user :password)
-        alien (-> request :body :user :alien)]
+  (let [{:keys [username password alien]}
+        (-> request :body :user (select-keys [:username :password :alien]))]
     (if alien
       (db/register-alien username password)
       (db/register-agent username password))))
@@ -81,6 +74,7 @@
     {:status 200
      :body aliens-rep}))
 
+
 (defn view-alien [id]
   (if-let [alien-info (db/alien-by-id (Integer/parseInt id))]
     {:status 200
@@ -88,6 +82,8 @@
     {:status 404
      :body (str "no such alien with id " id)}))
 
+
+#_:clj-kondo/ignore  ; хз почему
 (defn report
   [{:keys [params body] :as request}]
   (if-let* [alien-id (-> params :id Integer/parseInt)
@@ -102,6 +98,7 @@
     {:status 404
      :body (str "errors " (str request))}))
 
+
 (defn alien-form [user-id]
   (let [alien-form (db/pending-alien-form (Integer/parseInt user-id))
         skills (db/skills-alien-form (:alien_form_id alien-form))]
@@ -114,10 +111,12 @@
     {:status 200
      :body ans}))
 
+
 (defn set-request-rejected [request-id]
     (db/set-request-rejected (Integer/parseInt request-id))
     {:status 200
      :body "OK"})
+
 
 (defn save-alien-form [req]
   (let [body (:body req)
@@ -130,39 +129,41 @@
          :body ids}
         {:status 400})))
 
+
 (defn get-request-and-form [req-id]
   (let [ans (db/request-and-form (Integer/parseInt req-id))
         skills (db/skills-alien-form (:alien_form_id ans))]
     {:status 200
      :body (assoc ans :skills skills)}))
 
-; (get-request-and-form "4")
-
 
 (defn accept-request [req]
-  (let [params (:body req)
-        _  (println "PARAMS " params)
-        _ (db/accept-request params)]
+  (let [params (:body req)]
+    (db/accept-request params)
     {:status 200
      :body "ok"}))
+
 
 (defn skills-by-user-id [user-id]
   (let [skills (db/skills-by-user-id (Integer/parseInt user-id))]
      {:status 200
       :body skills}))
 
+
+
 (compojure/defroutes routes
   (compojure/context "/api" []
-    (compojure/context "/requests/:id" [id]
-      (compojure/POST "/accept" request (accept-request request)))
-    (compojure/GET "/requests/:id" [id] (get-request-and-form id))
-    (compojure/POST "/requests/:id/reject" [id] (set-request-rejected id))
-    (compojure/GET "/skills/:id" [id] (skills-by-user-id id))
     (compojure/GET "/requests" request (get-requests request))
-    ; (compojure/POST "/requests/:id/accept" [id])
+    (compojure/context "/requests/:id" [id]
+      (compojure/POST "/accept" request (accept-request request))
+      (compojure/POST "/reject" _ (set-request-rejected id))
+      (compojure/GET "/" _ (get-request-and-form id)))
+
+    (compojure/GET "/skills/:id" [id] (skills-by-user-id id))
     (compojure/context "/users" []
       (compojure/POST "/login" request (login request))
       (compojure/POST "/register" request (register request)))
+
     (compojure/GET "/my-aliens" request (my-aliens request))
     (compojure/context "/my-aliens/:id" [id]
       (compojure/POST "/report" request (report request))

@@ -10,14 +10,10 @@
    [clojure.string :as str])
   (:import [java.sql Timestamp]
            [java.sql Date]
-           [java.sql Connection]
-           [java.sql PreparedStatement]
-           [java.sql ResultSet]
            [java.time.format DateTimeFormatter]
            [java.time LocalDate]
            [java.time Instant]
-           [java.io FileWriter]
-           [java.io PushbackReader]))
+           [java.io FileWriter]))
 
 
 
@@ -33,20 +29,34 @@
     (catch RuntimeException e
       (printf "Error parsing edn file '%s': %s\n" source (.getMessage e)))))
 
-(defn load-config []
-  (load-edn "database-config.edn"))
+
+(def default-config
+  {:dbtype "postgresql"
+   :dbname "postgres"
+   :host "localhost"
+   :user "postgres"
+   :password "root"})
+
+(def config-filename "database-config.edn")
 
 
 (def pg-db
-  (if-let [config (load-config)]
-    config
-    {:dbtype "postgresql"
-     :dbname "postgres"
-     :host "localhost"
-     :user "postgres"
-     :password "root"}))
+  (atom ;; хочу менять в тестах базу данных, ничего умнее не придумалы
+    (if-let [config (load-edn config-filename)]
+      config
+      default-config)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; date insertion fix
+(defn set-db [db-config]
+  (reset! pg-db db-config))
+
+(defn reset-db []
+  (reset! pg-db default-config))
+
+(def query (partial jdbc/query @pg-db))
+
+(def ins! (partial jdbc/insert! @pg-db))
+
+;;---------------------------date insertion fix---------------------------------
 (extend-protocol jdbc/IResultSetReadColumn
   java.sql.Timestamp
   (result-set-read-column [v _ _]
@@ -62,7 +72,7 @@
   java.time.LocalDate
   (sql-value [v]
     (Date/valueOf v)))
-
+;;------------------------------------------------------------------------------
 
 (defmethod print-method java.time.Instant
   [inst out]
@@ -90,23 +100,23 @@
 
 ;;----------------user----------------------------------------------------------
 
+
 (defn user-by-cred [username passw]
   (first
-    (jdbc/query pg-db ["select id as user_id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))
+    (query ["select id as user_id, username, user_photo from \"user\" where username=? and passw_hash=?" username passw])))
+
 
 (defn get-roles [user-id]
-  (jdbc/query pg-db ["select r.name from \"user\" u
+  (query ["select r.name from \"user\" u
                       join user_roles ur on u.id = ur.user_id
                       join role r on ur.role_id = r.id where u.id = ?" user-id]))
 
 
-;;----------------alien---------------------------------------------------------
-
 (defn register-alien [username password]
-  (jdbc/query pg-db ["select * from register_alien(?, ?)" username password]))
+  (query ["select * from register_alien(?, ?)" username password]))
 
 (defn alien-by-id [alien-info-id]
-  (first (jdbc/query pg-db ["select u.username, u.user_photo,
+  (first (query ["select u.username, u.user_photo,
                            s.name as status,
                            p.first_name, p.second_name, p.age, p.person_photo,
                            l.city, l.country,
@@ -122,7 +132,7 @@
 
 
 (defn form-by-request-id [request-id]
-  (jdbc/query pg-db ["select r.id as request_id, r.creator_id, r.create_date,
+  (query ["select r.id as request_id, r.creator_id, r.create_date,
                      t.name as request_type, s.name as status,
                      f.planet_id, f.visit_purpose, f.stay_time, f.comment,
                      p.name as planet_name, p.race
@@ -133,16 +143,8 @@
                      join planet p on p.id = f.planet_id
                      where r.id=? and s.name = 'PENDING' and t.name = 'VISIT'" request-id]))
 
-; (defn alien-form-by-user-id [user-id]
-;   (jdbc/query pg-db ["select f.id as alien_form_id, f.user_id, p.name as planet_name, f.visit_purpose as visit_purp,
-;                       f.stay_time as staytime, f.comment as comm from alien_form f
-;                       join request r on f.id = r.alien_form_id
-;                       join request_status s on s.id = r.status_id
-;                       join planet p on p.id = f.planet_id
-;                       where s.name = 'PENDING' "]))
-
 (defn alien-info [user-id]
-  (jdbc/query pg-db ["select ai.id as alien_info_id, ai.departure_date, s.name as status from alien_info ai
+  (query ["select ai.id as alien_info_id, ai.departure_date, s.name as status from alien_info ai
                      join alien_status s on s.id = ai.alien_status_id where ai.user_id = ?" user-id]))
 
 (defn get-if-alien [user-id]
@@ -151,7 +153,7 @@
       (alien-info user-id))))
 
 (defn pending-alien-form [user_id]
-  (first (jdbc/query pg-db ["select f.id as alien_form_id, f.user_id, p.name as planet_name, f.visit_purpose as visit_purp,
+  (first (query ["select f.id as alien_form_id, f.user_id, p.name as planet_name, f.visit_purpose as visit_purp,
                       f.stay_time as staytime, f.comment as comm from alien_form f
                       join request r on f.id = r.alien_form_id
                       join request_status s on s.id = r.status_id
@@ -159,37 +161,35 @@
                       where s.name = 'PENDING' and f.user_id = ?" user_id])))
 
 
-(defn create-visit-request [form]
-  (let [{:keys [userid planet_name visit_purp staytime comm]} form]
-    (first (jdbc/query pg-db ["select * from create_visit_request(?, ?, ?, ?, ?)"
-                              userid planet_name visit_purp staytime comm]))))
+(defn create-visit-request [{:keys [userid planet_name visit_purp staytime comm]}]
+  (first (query ["select * from create_visit_request(?, ?, ?, ?, ?)"]
+             userid planet_name visit_purp staytime comm)))
 
 (defn form-add-skills [form-id skills]
   (let [skills-arg (str "'{" (str/join "," skills)  "}'")]
-    (jdbc/query pg-db [(str "select from insert_skill_in_alien_form(?, " skills-arg  ")") (int form-id)])))
+    (query [(str "select from insert_skill_in_alien_form(?, " skills-arg  ")") (int form-id)])))
 
 
-;;----------------agent---------------------------------------------------------
 
 (defn register-agent [username password]
-  (jdbc/query pg-db ["select * from register_agent(?, ?)" username password]))
+  (query ["select * from register_agent(?, ?)" username password]))
 
 
 (defn reports-today [agent-id]
-  (into #{} (map #(:alien_info_id %) (jdbc/query pg-db ["select alien_info_id from agent_alien aa
+  (into #{} (map #(:alien_info_id %) (query ["select alien_info_id from agent_alien aa
                       join tracking_report t on aa.id = t.agent_alien_id
                       where agent_info_id = ? and t.report_date = current_date" agent-id]))))
 
 
-
 (defn ins-report! [report-date behavior description agent-alien-id]
-  (jdbc/insert! pg-db :tracking_report {:report_date (parse-date report-date)
-                                        :behavior behavior
-                                        :description description
-                                        :agent_alien_id agent-alien-id}))
+  (ins! :tracking_report {:report_date (parse-date report-date)
+                          :behavior behavior
+                          :description description
+                          :agent_alien_id agent-alien-id}))
+
 
 (defn agent-info [user-id]
-  (jdbc/query pg-db ["select id as agent_info_id, nickname from agent_info where user_id = ?" user-id]))
+  (query ["select id as agent_info_id, nickname from agent_info where user_id = ?" user-id]))
 
 
 
@@ -201,7 +201,7 @@
 
 
 (defn aliens-by-agent-id [agent-id]
-  (into #{} (jdbc/query pg-db ["select al.id as alien_info_id, u.username, u.user_photo, s.name as status,
+  (into #{} (query ["select al.id as alien_info_id, u.username, u.user_photo, s.name as status,
                            al.personality_id, al.departure_date
                            from agent_info ag
                            join agent_alien aa on ag.id = aa.agent_info_id
@@ -213,14 +213,13 @@
 
 
 (defn get-agent-alien [agent-id alien-id]
-  (:id (first (jdbc/query pg-db ["select id
-                           from agent_alien aa
-                           where alien_info_id = ? and agent_info_id = ?" alien-id agent-id]))))
+  (:id (first (query ["select id
+                      from agent_alien aa
+                      where alien_info_id = ? and agent_info_id = ?" alien-id agent-id]))))
 
 
 (defn get-pending-requests []
-  (into [] (jdbc/query pg-db [
-                              "select r.id as request_id, r.creator_id, date(r.create_date),
+  (into [] (query ["select r.id as request_id, r.creator_id, date(r.create_date),
                                s.name as status, t.name as type, u.username, u.user_photo
                                from request r
                                join request_type t on r.type_id = t.id
@@ -230,59 +229,41 @@
                                order by r.id"])))
 
 (defn request-and-form [request-id]
-  (first (jdbc/query pg-db
-                     ["select r.id as request_id, r.creator_id, date(r.create_date),
-                        t.name as request_type, s.name as status,
-                        f.id as alien_form_id,
-                        f.planet_id, f.visit_purpose, f.stay_time, f.comment,
-                        p.name as planet_name, p.race,
-                        u.username, u.user_photo
-                        from request r
-                        join request_type t on r.type_id = t.id
-                        join request_status s on s.id = r.status_id
-                        join alien_form f on r.alien_form_id = f.id
-                        join planet p on p.id = f.planet_id
-                        join \"user\" u on r.creator_id = u.id
-                        where r.id=? and s.name = 'PENDING' and t.name = 'VISIT'" request-id])))
+  (first (query  ["select r.id as request_id, r.creator_id, date(r.create_date),
+                  t.name as request_type, s.name as status,
+                  f.id as alien_form_id,
+                  f.planet_id, f.visit_purpose, f.stay_time, f.comment,
+                  p.name as planet_name, p.race,
+                  u.username, u.user_photo
+                  from request r
+                  join request_type t on r.type_id = t.id
+                  join request_status s on s.id = r.status_id
+                  join alien_form f on r.alien_form_id = f.id
+                  join planet p on p.id = f.planet_id
+                  join \"user\" u on r.creator_id = u.id
+                  where r.id=? and s.name = 'PENDING' and t.name = 'VISIT'" request-id])))
 
 
 (defn set-request-rejected [request-id]
-  (jdbc/query pg-db ["select reject_request(?)" request-id]))
+  (query ["select reject_request(?)" request-id]))
 
-; (request-and-form 4)
 (defn skills-alien-form [form-id]
-  (map (comp :name) (jdbc/query pg-db ["select name from alien_form f
+  (map (comp :name) (query ["select name from alien_form f
                      join skill_in_alien_form siaf on f.id = siaf.alien_form_id
                      join skill s on siaf.skill_id = s.id
                      where f.id = ?" form-id])))
 
-; (skills-alien-form 1022)
 
 (defn skills-by-user-id [user-id]
-  (jdbc/query pg-db ["select * from get_professions_by_user_id(?)" user-id]))
+  (query ["select * from get_professions_by_user_id(?)" user-id]))
 
 ; =)
-(defn accept-request [{:keys [request_id creatorid executorid firstname secondname agearg professionname cityname countryname personphoto]}]
-  (println "KEYS " (str/join " " [request_id creatorid executorid firstname secondname agearg professionname cityname countryname personphoto]))
-  (jdbc/query pg-db ["select from accept_request(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" request_id creatorid executorid firstname secondname agearg professionname cityname countryname personphoto])
+(defn accept-request [{:keys [request_id creatorid executorid firstname secondname
+                              agearg professionname cityname countryname personphoto]}]
+  (query ["select from accept_request(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          request_id creatorid executorid firstname secondname
+          agearg professionname cityname countryname personphoto])
 
   (comment
      (user-by-cred "123" "123")
-     (user-by-cred "1" "1")
-     (def report {:report-date "2022-03-12"
-                   :behavior 10
-                   :description "some text"
-                   :agent_alien_id 1})
-
-     ; #time/ld "2022-01-01"
-     (jdbc/insert! pg-db :tracking_report {:report_date #time/ld "2022-03-12"
-                                            :behavior 2
-                                            :description "f"
-                                            :agent_alien_id 1})
-     (ins-report! "2022-03-12" 7 "gfd" 1)
-
-
-     (register-alien "fsdf" "fsdfsd")
-     (first (register-agent "12345fsdfsd6" "123456"))
-
-     (jdbc/query pg-db ["select * from register_user(?, ?)" "2" "2"])))
+     (user-by-cred "1" "1")))

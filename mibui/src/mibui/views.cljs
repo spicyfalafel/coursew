@@ -2,9 +2,7 @@
   (:require
    [re-frame.core :refer [subscribe dispatch]]
    [reagent.core :as reagent]
-   [mibui.events :as events]
    [mibui.routes :as routes :refer [url-for]]
-   [mibui.subs :as subs]
    [cljs-time.core :as time]
    [cljs-time.format :as time-format]
    [clojure.string :as str]))
@@ -69,7 +67,6 @@
         registration (reagent/atom default)]
     (fn []
       (let [{:keys [username password alien]} @registration
-            errors @(subscribe [:errors])
             register-user (fn [event registration]
                             (.preventDefault event)
                             (dispatch [:register-user registration]))]
@@ -105,7 +102,6 @@
 
              [:p.text-xs-center
               [:a {:href (url-for :login)} "Have an account?"]]]]))))
-; (when (:register-user errors) [errors-list (:register-user errors)])
 
 
 
@@ -122,8 +118,6 @@
         [:div.card-body
          [:h5.card-title (:username alien)]
          [:h6.card-subtitle.mb-2.text-muted "id " (:alien_info_id alien)]
-         ; [:h6.card-subtitle.mb-2.text-muted  (:status alien)]
-         ; [:h6.card-subtitle.mb-2.text-muted  "Departure date " (:departure_date alien)]
 
          [:button.btn.card-link.btn-primary {
                                              :on-click #(.preventDefault %
@@ -142,7 +136,7 @@
                      (.preventDefault event)
                      (dispatch [:send-report (:alien_info_id al) report]))]
     (fn []
-      (let [{:keys [behavior description report_date]} @report]
+      (let [{:keys [report_date]} @report]
        [:div.container
         [:div
          [:h2 "Alien " (:username al) "(" (:alien_info_id al) ")"]
@@ -204,7 +198,6 @@
 
 (defn header []
   (let [user @(subscribe [:user])
-        active-page @(subscribe [:active-page])
         is-agent (:agent_info_id user)]
       [:div
        [:nav.navbar.navbar-light.navbar-expand-lg.bg-light
@@ -256,11 +249,9 @@
                    [:h6.card-subtitle.mb-2.text-muted "Username: " (:username req)]
                    [:h6.card-subtitle.mb-2.text-muted "Type: " (:type req)]
                    [:h6.card-subtitle.mb-2.text-muted  "Status: " (:status req)]
-                   ; [:h6.card-subtitle.mb-2.text-muted  "Create date: " (:date req)]
                    [:a.btn.card-link.btn-primary
 
                      {:on-click #(dispatch [:request (:request_id req)])}
-                      ; :href (url-for :request (:request_id req))}
                     "Check out"]]]]])
          requests)]))
 
@@ -283,7 +274,7 @@
       (let [{:keys [planet_name visit_purp staytime comm skills]} @al-form]
         [:div.row.align-items-center.justify-content-center
            [:form.col-4.text-center.w-25 {:on-submit #(send-form % @al-form)}
-            (println form-from-db) ;; без этого не работает
+            (println form-from-db)
             [:h1 "Alien form"]
             [:div.form-outline
              [:input.form-control {:id :planet
@@ -328,7 +319,7 @@
         req @(subscribe [:request])
         professions @(subscribe [:professions])
         {:keys [request_id username date request_type status creator_id
-                planet_name race visit_purpose stay_time comment user_photo skills]}
+                planet_name race visit_purpose stay_time comment skills]}
         req
         _ (dispatch [:skills-by-user-id creator_id])
         status-here (reagent/atom :pending)
@@ -342,11 +333,7 @@
         accept (fn [event data]
                  (.preventDefault event)
                  (dispatch [:accept-request request_id data])
-                 (reset! status-here :accepted))
-        get-skills (fn [event id]
-                     (.preventDefault event)
-                     ; (println "HELLO?")
-                     (dispatch [:skills-by-user-id id]))]
+                 (reset! status-here :accepted))]
     (fn []
       (case @status-here
         :pending [:div.container
@@ -398,8 +385,6 @@
                                               :on-change   #(swap! form-inputs assoc
                                                                    :professionname (-> % .-target .-value))}]
                         [:label.form-label {:for :profession} "Profession"]
-                        ; [:button.btn {:on-click #(get-skills % creator_id)} "Get available professions"]
-                        ; (when (seq professions)
                      (doall [:div
                              [:div.form-text "Available professions for this alien: " (str/join " " (map :name professions))]])]
 
