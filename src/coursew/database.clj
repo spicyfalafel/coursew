@@ -116,6 +116,11 @@
 (defn register-alien [username password]
   (query ["select * from register_alien(?, ?)" username password]))
 
+
+(defn register-agent [username password]
+  (query ["select * from register_agent(?, ?)" username password]))
+
+
 (defn alien-by-id [alien-info-id]
   (first (query ["select u.username, u.user_photo,
                            s.name as status,
@@ -171,11 +176,6 @@
     (query [(str "select from insert_skill_in_alien_form(?, " skills-arg  ")") (int form-id)])))
 
 
-
-(defn register-agent [username password]
-  (query ["select * from register_agent(?, ?)" username password]))
-
-
 (defn reports-today [agent-id]
   (into #{} (map #(:alien_info_id %) (query ["select alien_info_id from agent_alien aa
                       join tracking_report t on aa.id = t.agent_alien_id
@@ -229,6 +229,7 @@
                                where s.name = 'PENDING' and t.name = 'VISIT'
                                order by r.id"])))
 
+
 (defn request-and-form [request-id]
   (first (query  ["select r.id as request_id, r.creator_id, date(r.create_date),
                   t.name as request_type, s.name as status,
@@ -247,6 +248,7 @@
 
 (defn set-request-rejected [request-id]
   (query ["select reject_request(?)" request-id]))
+
 
 (defn skills-alien-form [form-id]
   (map (comp :name) (query ["select name from alien_form f

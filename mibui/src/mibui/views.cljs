@@ -4,6 +4,7 @@
    [reagent.core :as reagent]
    [mibui.routes :as routes :refer [url-for]]
    [cljs-time.core :as time]
+   [mibui.subs :as subs]
    [cljs-time.format :as time-format]
    [clojure.string :as str]))
 
@@ -25,13 +26,6 @@
                                      :alien-form))}])))
 
 
-(defn errors-list
-  [errors]
-  [:ul.error-messages
-   (for [[k [v]] errors]
-     ^{:key k} [:li (str (name k) " " v)])])
-
-
 ; login
 (defn login []
   (let [default {:login "" :password ""}
@@ -41,7 +35,7 @@
                      (dispatch [:login credentials]))]
     (fn []
       (let [{:keys [username password]} @credentials]
-       [:div.row.align-items-center.justify-content-center
+       [:div.row.align-items-center.justify-content-center {:id :login-div}
         [:form.col-4.text-center.w-25 {:on-submit #(login-user % @credentials)}
          [:h1.text-xs-center "Sign in"]
          [:div.form-outline
@@ -107,7 +101,7 @@
 
 (defn aliens []
   (let [my-aliens @(subscribe [:my-aliens])]
-    [:div.align-items-center.justify-content-center.row
+    [:div.align-items-center.justify-content-center.row {:id :my-aliens}
      [:h1 "My aliens"]
      (for [alien  my-aliens]
       [:div.col.m-3 {:key (:alien_info_id alien)}
@@ -198,6 +192,7 @@
 
 (defn header []
   (let [user @(subscribe [:user])
+        active-page @(subscribe [:active-page])
         is-agent (:agent_info_id user)]
       [:div
        [:nav.navbar.navbar-light.navbar-expand-lg.bg-light
@@ -224,12 +219,13 @@
              (when (not is-agent) [:li.nav-item.active
                                    [:a.nav-link {:href (url-for :alien-form)} "Alien form"]])]
             [:ul.navbar-nav
-             [:li.nav-item.navbar-text (str (if is-agent
-                                              "AGENT "
-                                              "ALIEN ")
-                                         (:username user))]
+             [:li.nav-item.navbar-text  {:id :nav-username}(str (if is-agent
+                                                                  "AGENT "
+                                                                  "ALIEN ")
+                                                             (:username user))]
              [:li.nav-item.active
-              [:a.nav-link  {:on-click
+              [:a.nav-link  {:id :logout-link
+                             :on-click
                              #(.preventDefault %
                                (dispatch [:logout]))} "Log out"]]]])]]))
 
