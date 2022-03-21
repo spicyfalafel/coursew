@@ -17,6 +17,8 @@
   (every? #(contains? mp %) ks))
 
 
+
+
 (deftest test-get-requests
   (let [resp (serv/app (mock/request :get "/api/requests"))
         body (json/parse-string (:body resp) true)]
@@ -24,3 +26,8 @@
     (is (string? (:body resp)))
     (is (every? #(contains-many? % :request_id :creator_id :date :status :type :username :user_photo)
                 body))))
+
+
+(deftest test-view-alien
+  (let [resp (serv/app (mock/request :get "/api/my-aliens/"))
+        body (json/parse-string (:body resp) true)]))
