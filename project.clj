@@ -14,4 +14,5 @@
                    [org.postgresql/postgresql "42.3.3"]
                    [com.github.seancorfield/honeysql "2.2.868"]
                    [clojure.java-time "0.3.3"]]
-    :profiles {:dev {:dependencies [[etaoin "0.4.6"]]}})
+    :profiles {:dev {:dependencies [[etaoin "0.4.6"]
+                                    [ring/ring-mock "0.4.0"]]}})
