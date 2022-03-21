@@ -27,7 +27,7 @@
     (is (every? #(contains-many? % :request_id :creator_id :date :status :type :username :user_photo)
                 body))))
 
-
-(deftest test-view-alien
-  (let [resp (serv/app (mock/request :get "/api/my-aliens/"))
-        body (json/parse-string (:body resp) true)]))
+; test ci 
+; (deftest test-view-alien
+;   (let [resp (serv/app (mock/request :get "/api/my-aliens/"))
+;         body (json/parse-string (:body resp) true)]))
