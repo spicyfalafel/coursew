@@ -1,0 +1,31 @@
+version: '3'
+services:
+  db:
+    # build: ./sql
+    image: postgres:latest
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=root
+    ports:
+      - '5433:5432'
+    volumes: 
+      # - ./postgres-data:/var/lib/postgresql/data
+          # copy the sql script to create tables
+      - ./sql/init/:/docker-entrypoint-initdb.d/
+
+  frontend:
+    tty: true
+    build: ./mibui
+    command: tail -f /dev/null
+    ports:
+      - '8280:8280'
+
+  backend:
+    build: .
+    ports:
+      - '8080:8080'
+    depends_on:
+      - db
+
+

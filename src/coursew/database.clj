@@ -34,6 +34,7 @@
    :dbname "postgres"
    :host "localhost"
    :user "postgres"
+   :port 5433
    :password "root"})
 
 (def config-filename "database-config.edn")
